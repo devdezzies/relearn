@@ -1,4 +1,3 @@
-import DeployButton from "@/components/deploy-button";
 import { EnvVarWarning } from "@/components/env-var-warning";
 import HeaderAuth from "@/components/header-auth";
 import { ThemeSwitcher } from "@/components/theme-switcher";
@@ -14,8 +13,8 @@ const defaultUrl = process.env.VERCEL_URL
 
 export const metadata = {
   metadataBase: new URL(defaultUrl),
-  title: "Next.js and Supabase Starter Kit",
-  description: "The fastest way to build apps with Next.js and Supabase",
+  title: "Relearn - AI Learning Assistant",
+  description: "AI chatbot that helps with learning",
 };
 
 const geistSans = Geist({
@@ -33,8 +32,7 @@ export default function RootLayout({
       <body className="bg-background text-foreground">
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          defaultTheme="dark"
           disableTransitionOnChange
         >
           <main className="min-h-screen flex flex-col items-center">
@@ -51,16 +49,19 @@ export default function RootLayout({
                 {children}
               </div>
 
-              <footer className="w-full flex items-center justify-center border-t mx-auto text-center text-xs gap-8 py-16">
+              <footer className="w-full flex flex-col md:flex-row items-center justify-center border-t mx-auto text-center text-xs gap-4 md:gap-8 py-12">
+                <p className="text-muted-foreground">
+                  © {new Date().getFullYear()} Relearn - Educational AI Chatbot
+                </p>
                 <p>
                   Made for{" "}
                   <a
-                    href="https://supabase.com/?utm_source=create-next-app&utm_medium=template&utm_term=nextjs"
+                    href="#"
                     target="_blank"
-                    className="font-bold hover:underline"
+                    className="font-medium hover:underline"
                     rel="noreferrer"
                   >
-                    Alibaba GenAI Hackathon 2025
+                    Alibaba GenAI Hackathon
                   </a>
                 </p>
                 <ThemeSwitcher />

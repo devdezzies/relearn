@@ -1,44 +1,20 @@
-import NextLogo from "./next-logo";
-import SupabaseLogo from "./supabase-logo";
+import { BookOpen, Brain, Sparkles } from "lucide-react";
 
 export default function Header() {
   return (
-    <div className="flex flex-col gap-16 items-center">
-      <div className="flex gap-8 justify-center items-center">
-        <a
-          href="https://supabase.com/?utm_source=create-next-app&utm_medium=template&utm_term=nextjs"
-          target="_blank"
-          rel="noreferrer"
-        >
-          <SupabaseLogo />
-        </a>
-        <span className="border-l rotate-45 h-6" />
-        <a href="https://nextjs.org/" target="_blank" rel="noreferrer">
-          <NextLogo />
-        </a>
+    <div className="flex flex-col gap-6 items-center max-w-4xl mx-auto px-4 py-16">
+      <div className="flex items-center justify-center mb-6">
+        <Brain className="h-12 w-12 text-primary mr-3" />
+        <h1 className="text-5xl font-bold tracking-tight">Relearn</h1>
       </div>
-      <h1 className="sr-only">Supabase and Next.js Starter Template</h1>
-      <p className="text-3xl lg:text-4xl !leading-tight mx-auto max-w-xl text-center">
-        The fastest way to build apps with{" "}
-        <a
-          href="https://supabase.com/?utm_source=create-next-app&utm_medium=template&utm_term=nextjs"
-          target="_blank"
-          className="font-bold hover:underline"
-          rel="noreferrer"
-        >
-          Supabase
-        </a>{" "}
-        and{" "}
-        <a
-          href="https://nextjs.org/"
-          target="_blank"
-          className="font-bold hover:underline"
-          rel="noreferrer"
-        >
-          Next.js
-        </a>
+
+      <h2 className="text-6xl font-bold tracking-tight text-center mb-6">
+        Learn faster with AI
+      </h2>
+
+      <p className="text-2xl text-muted-foreground text-center max-w-2xl">
+        Your AI-powered study companion for the digital age
       </p>
-      <div className="w-full p-[1px] bg-gradient-to-r from-transparent via-foreground/10 to-transparent my-8" />
     </div>
   );
 }
