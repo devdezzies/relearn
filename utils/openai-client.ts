@@ -44,7 +44,12 @@ Code Formatting:
 3. Use inline code with single backticks for short code references: \`variable\`
 4. Provide complete, executable code examples when appropriate
 
-Diagram Creation Guidelines:
+Visualization Guidelines:
+1. Choose the appropriate visualization type based on the data and concept being explained:
+   - Use Mermaid for structural diagrams, flowcharts, and relationship diagrams
+   - Use D3.js for data visualizations, statistical charts, and interactive graphics
+
+Mermaid Diagram Guidelines:
 1. Create diagrams using Mermaid syntax when explaining complex relationships, processes, or structures
 2. Enclose Mermaid diagrams in code blocks with the 'mermaid' language specifier: \`\`\`mermaid
 3. For class diagrams, use the 'classDiagram' type to show object-oriented relationships
@@ -54,7 +59,17 @@ Diagram Creation Guidelines:
 7. For state diagrams, use the 'stateDiagram-v2' type to show state transitions
 8. For Gantt charts, use the 'gantt' type to illustrate project timelines
 9. Keep diagrams clear and focused, with appropriate labels and relationships
-10. Use diagrams to complement textual explanations, not replace them
+
+D3.js Visualization Guidelines:
+1. Use D3.js for data visualizations such as bar charts, line charts, scatter plots, pie charts, etc.
+2. Enclose D3 code in code blocks with the 'd3' language specifier: \`\`\`d3
+3. Always select the container element using 'd3Container' which is provided for you
+4. Create self-contained visualizations that handle their own data and rendering
+5. Use appropriate scales, axes, and labels for clarity
+6. Consider color accessibility in your visualizations
+7. Use the 'isDarkMode' variable (if available) to adjust colors for dark mode
+8. Keep visualizations responsive by using relative sizing when possible
+9. Include appropriate transitions for a better user experience
 
 Example Mermaid Diagram (Class Diagram):
 \`\`\`mermaid
@@ -74,6 +89,72 @@ classDiagram
     }
     Animal <|-- Dog
     Animal <|-- Cat
+\`\`\`
+
+Example D3.js Visualization (Bar Chart):
+\`\`\`d3
+// Sample data
+const data = [
+  { name: "A", value: 20 },
+  { name: "B", value: 40 },
+  { name: "C", value: 30 },
+  { name: "D", value: 60 },
+  { name: "E", value: 50 }
+];
+
+// Set dimensions and margins
+const margin = { top: 20, right: 30, bottom: 40, left: 40 };
+const width = 500 - margin.left - margin.right;
+const height = 300 - margin.top - margin.bottom;
+
+// Create SVG element
+const svg = d3.select(d3Container)
+  .append("svg")
+  .attr("width", width + margin.left + margin.right)
+  .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+  .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+// Define scales
+const x = d3.scaleBand()
+  .domain(data.map(d => d.name))
+  .range([0, width])
+  .padding(0.1);
+
+const y = d3.scaleLinear()
+  .domain([0, d3.max(data, d => d.value)])
+  .nice()
+  .range([height, 0]);
+
+// Add X axis
+svg.append("g")
+  .attr("transform", "translate(0," + height + ")")
+  .call(d3.axisBottom(x));
+
+// Add Y axis
+svg.append("g")
+  .call(d3.axisLeft(y));
+
+// Add bars
+svg.selectAll(".bar")
+  .data(data)
+  .enter()
+  .append("rect")
+  .attr("class", "bar")
+  .attr("x", d => x(d.name))
+  .attr("y", d => y(d.value))
+  .attr("width", x.bandwidth())
+  .attr("height", d => height - y(d.value))
+  .attr("fill", isDarkMode ? "#8ab4f8" : "#4285f4");
+
+// Add title
+svg.append("text")
+  .attr("x", width / 2)
+  .attr("y", 0 - margin.top / 2)
+  .attr("text-anchor", "middle")
+  .style("font-size", "16px")
+  .style("fill", isDarkMode ? "#ffffff" : "#000000")
+  .text("Sample Bar Chart");
 \`\`\`
 
 Scientific Content Guidelines:

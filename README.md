@@ -11,10 +11,14 @@ An AI chatbot that helps you learn better.
 - **Knowledge**
   - Educational content library
   - Learning paths
+- **Visualizations**
+  - Mermaid diagrams for flowcharts, sequence diagrams, and more
+  - D3.js visualizations for data-driven graphics and charts
 - **Interactive**
   - Practice exercises
   - Feedback on answers
-  - Visual aids
+  - Visual aids and diagrams
+  - Data visualizations with D3.js
 - **Interface**
   - Dark/light mode
   - Mobile friendly
@@ -87,6 +91,53 @@ If you wish to just develop locally and not deploy to Vercel, [follow the steps 
 ## Feedback and issues
 
 We value your feedback! If you have any suggestions, questions, or issues with Relearn, please reach out to our team.
+
+## Visualization Features
+
+### Mermaid Diagrams
+Relearn supports Mermaid diagrams for creating various types of visualizations:
+- Flowcharts
+- Sequence diagrams
+- Class diagrams
+- Entity-relationship diagrams
+- State diagrams
+- Gantt charts
+
+To create a Mermaid diagram, use the following syntax in your messages:
+
+```
+```mermaid
+flowchart TD
+    A[Start] --> B{Is it working?}
+    B -->|Yes| C[Great!]
+    B -->|No| D[Debug]
+    D --> B
+```
+```
+
+### D3.js Visualizations
+Relearn now supports D3.js for creating rich, interactive data visualizations:
+- Bar charts
+- Line charts
+- Pie charts
+- Scatter plots
+- And many more custom visualizations
+
+To create a D3.js visualization, use the following syntax in your messages:
+
+```
+```d3
+// Your D3.js code here
+const data = [10, 20, 30, 40, 50];
+const svg = d3.select(d3Container)
+  .append("svg")
+  .attr("width", 500)
+  .attr("height", 300);
+// More D3.js code...
+```
+```
+
+The AI will automatically detect when to use Mermaid or D3.js based on the visualization needs in your prompt.
 
 ## About
 

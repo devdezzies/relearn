@@ -9,6 +9,7 @@ import rehypeKatex from "rehype-katex";
 import rehypeRaw from "rehype-raw";
 import { MermaidDiagram } from "./mermaid-diagram";
 import { extractMermaidDiagrams, ParallelMermaidDiagram } from "./parallel-mermaid-diagram";
+import { extractD3Visualizations, ParallelD3Visualization } from "./parallel-d3-visualization";
 import { Button } from "./ui/button";
 import { Download } from "lucide-react";
 
@@ -29,6 +30,7 @@ export function MarkdownResponseStream({
 }: MarkdownResponseStreamProps) {
   const [displayedText, setDisplayedText] = useState("");
   const [diagrams, setDiagrams] = useState<{ id: string; chart: string; placeholder: string }[]>([]);
+  const [d3Visualizations, setD3Visualizations] = useState<{ id: string; code: string; placeholder: string }[]>([]);
   const contentRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
 
@@ -97,22 +99,26 @@ export function MarkdownResponseStream({
     }
   };
 
-  // Extract diagrams and update the displayed text as it streams
+  // Extract diagrams and D3 visualizations and update the displayed text as it streams
   useEffect(() => {
     // Extract mermaid diagrams from the text
     const { cleanContent: contentWithoutDiagrams, diagrams: extractedDiagrams } = extractMermaidDiagrams(currentText);
 
-    // Update diagrams state
+    // Extract D3 visualizations from the text without diagrams
+    const { cleanContent: finalContent, visualizations: extractedVisualizations } = extractD3Visualizations(contentWithoutDiagrams);
+
+    // Update diagrams and visualizations state
     setDiagrams(extractedDiagrams);
+    setD3Visualizations(extractedVisualizations);
 
     // Update displayed text
-    setDisplayedText(contentWithoutDiagrams);
+    setDisplayedText(finalContent);
   }, [currentText]);
 
-  // Function to render text with diagram placeholders replaced by actual diagrams
-  const renderTextWithDiagrams = () => {
-    // If no diagrams, just return the text
-    if (diagrams.length === 0) {
+  // Function to render text with diagram and D3 visualization placeholders replaced by actual components
+  const renderTextWithDiagramsAndVisualizations = () => {
+    // If no diagrams or visualizations, just return the text
+    if (diagrams.length === 0 && d3Visualizations.length === 0) {
       return (
         <ReactMarkdown 
           remarkPlugins={[remarkGfm, remarkMath]}
@@ -121,7 +127,7 @@ export function MarkdownResponseStream({
             code({ node, inline, className, children, ...props }) {
               const match = /language-(\w+)/.exec(className || '');
 
-              // Default code rendering (no mermaid handling here)
+              // Default code rendering (no special handling here)
               return (
                 <code className={className} {...props}>
                   {children}
@@ -135,19 +141,29 @@ export function MarkdownResponseStream({
       );
     }
 
-    // Split content by diagram placeholders
-    const parts = displayedText.split(/(\[DIAGRAM:[a-z0-9-]+\])/);
+    // Split content by diagram and D3 visualization placeholders
+    const parts = displayedText.split(/(\[DIAGRAM:[a-z0-9-]+\]|\[D3VIZ:[a-z0-9-]+\])/);
 
     return (
       <>
         {parts.map((part, index) => {
           // Check if this part is a diagram placeholder
-          const match = part.match(/\[DIAGRAM:([a-z0-9-]+)\]/);
-          if (match) {
-            const diagramId = match[1];
+          const diagramMatch = part.match(/\[DIAGRAM:([a-z0-9-]+)\]/);
+          if (diagramMatch) {
+            const diagramId = diagramMatch[1];
             const diagram = diagrams.find(d => d.id === diagramId);
             if (diagram) {
               return <ParallelMermaidDiagram key={diagramId} id={diagramId} chart={diagram.chart} />;
+            }
+          }
+
+          // Check if this part is a D3 visualization placeholder
+          const d3Match = part.match(/\[D3VIZ:([a-z0-9-]+)\]/);
+          if (d3Match) {
+            const vizId = d3Match[1];
+            const visualization = d3Visualizations.find(v => v.id === vizId);
+            if (visualization) {
+              return <ParallelD3Visualization key={vizId} id={vizId} code={visualization.code} />;
             }
           }
 
@@ -159,7 +175,7 @@ export function MarkdownResponseStream({
               rehypePlugins={[rehypeKatex, rehypeRaw]}
               components={{
                 code({ node, inline, className, children, ...props }) {
-                  // Default code rendering (no mermaid handling here)
+                  // Default code rendering (no special handling here)
                   return (
                     <code className={className} {...props}>
                       {children}
@@ -179,7 +195,7 @@ export function MarkdownResponseStream({
   return (
     <div className="w-full min-w-full">
       <div ref={contentRef} className="markdown-content">
-        {renderTextWithDiagrams()}
+        {renderTextWithDiagramsAndVisualizations()}
       </div>
       {isComplete && (
         <div className="flex justify-end mt-4">
