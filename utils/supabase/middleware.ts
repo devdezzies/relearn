@@ -39,9 +39,14 @@ export const updateSession = async (request: NextRequest) => {
     // https://supabase.com/docs/guides/auth/server-side/nextjs
     const user = await supabase.auth.getUser();
 
-    // protected routes
+    // protected routes - allow public access to /share routes
     if (request.nextUrl.pathname.startsWith("/protected") && user.error) {
       return NextResponse.redirect(new URL("/sign-in", request.url));
+    }
+
+    // Allow public access to shared conversation routes
+    if (request.nextUrl.pathname.startsWith("/share")) {
+      return response;
     }
 
     if (request.nextUrl.pathname === "/" && !user.error) {

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { User, Bot, Send, Menu, Plus, ExternalLink, MessageSquare, Video, Loader2, Trash2 } from "lucide-react";
+import { User, Bot, Send, Menu, Plus, ExternalLink, MessageSquare, Video, Loader2, Trash2, Share2 } from "lucide-react";
 import { signOutAction } from "@/app/actions";
 import { ThemeSwitcher } from "./theme-switcher";
 import { AlertDialog } from "./ui/alert-dialog";
@@ -39,10 +39,10 @@ type Message = {
 };
 
 
-export default function ChatInterface() {
+export default function ChatInterface({ initialConversationId }: { initialConversationId?: string }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversations, setConversations] = useState<ConversationType[]>([]);
-  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(initialConversationId || null);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
@@ -123,8 +123,27 @@ export default function ChatInterface() {
         const conversationsData = await getConversations();
         setConversations(conversationsData);
 
-        // If there are conversations, select the most recent one
-        if (conversationsData.length > 0) {
+        // If initialConversationId is provided, load that conversation
+        if (initialConversationId) {
+          // Find the conversation in the loaded conversations
+          const conversation = conversationsData.find(
+            (conv) => conv.conversation_id === initialConversationId
+          );
+
+          if (conversation) {
+            setChatTitle(conversation.title);
+            await loadMessages(initialConversationId);
+          } else {
+            // If the conversation is not found, select the most recent one
+            if (conversationsData.length > 0) {
+              setCurrentConversationId(conversationsData[0].conversation_id);
+              setChatTitle(conversationsData[0].title);
+              await loadMessages(conversationsData[0].conversation_id);
+            }
+          }
+        } 
+        // If no initialConversationId is provided and there are conversations, select the most recent one
+        else if (conversationsData.length > 0) {
           setCurrentConversationId(conversationsData[0].conversation_id);
           setChatTitle(conversationsData[0].title);
           await loadMessages(conversationsData[0].conversation_id);
@@ -146,7 +165,7 @@ export default function ChatInterface() {
     };
 
     checkAuth();
-  }, []);
+  }, [initialConversationId]);
 
   // Load messages for a conversation
   const loadMessages = async (conversationId: string) => {
@@ -470,6 +489,38 @@ export default function ChatInterface() {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  // Function to handle sharing a conversation
+  const handleShareConversation = async () => {
+    if (!currentConversationId) return;
+
+    // Generate the shareable URL using the public sharing route
+    const shareUrl = `${window.location.origin}/share/${currentConversationId}`;
+
+    try {
+      // Check if the Clipboard API is available
+      if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+        // Copy the URL to clipboard using the Clipboard API
+        await navigator.clipboard.writeText(shareUrl);
+
+        // Show a success message
+        setAlertTitle("Link Copied");
+        setAlertMessage("Public conversation link has been copied to clipboard. You can now share it with others. Anyone with this link can view the conversation without logging in.");
+      } else {
+        // Fallback for environments where Clipboard API is not available
+        setAlertTitle("Share Conversation");
+        setAlertMessage(`Your browser doesn't support automatic copying. Please manually select and copy this link: ${shareUrl}`);
+      }
+      setIsAlertOpen(true);
+    } catch (error) {
+      console.error("Error copying to clipboard:", error);
+
+      // Show an error message with the URL so users can still copy it manually
+      setAlertTitle("Share Conversation");
+      setAlertMessage(`There was an error copying to clipboard. Please manually select and copy this link: ${shareUrl}`);
+      setIsAlertOpen(true);
+    }
+  };
+
   // Generate a meaningful title based on conversation content
   const generateTitle = (messages: Message[]) => {
     // Need at least a user message to generate a title
@@ -636,7 +687,25 @@ export default function ChatInterface() {
           >
             <Menu size={18} className="text-gray-500 dark:text-gray-400" />
           </button>
-          <h2 className="font-medium text-gray-800 dark:text-gray-200">{chatTitle}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="font-medium text-gray-800 dark:text-gray-200">{chatTitle}</h2>
+            {currentConversationId && (
+              <button
+                onClick={() => {
+                  if (isResponseStreaming) {
+                    alert("Cannot share conversation while a response is being generated. Please wait for the current response to complete.");
+                  } else {
+                    handleShareConversation();
+                  }
+                }}
+                className={`p-1.5 rounded-md ${!isResponseStreaming ? 'hover:bg-gray-100 dark:hover:bg-gray-900' : 'opacity-50 cursor-not-allowed'} transition-colors`}
+                disabled={isResponseStreaming}
+                title="Share conversation"
+              >
+                <Share2 size={16} className="text-gray-500 dark:text-gray-400" />
+              </button>
+            )}
+          </div>
           <div className="text-xs text-gray-500 dark:text-gray-400">
             {isGeneratingVideo ? "Generating video..." : isLoading ? "Typing..." : isResponseStreaming ? "Responding..." : ""}
           </div>

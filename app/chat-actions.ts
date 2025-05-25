@@ -194,3 +194,41 @@ export async function deleteConversation(conversationId: string) {
   revalidatePath("/");
   return { success: true };
 }
+
+// Get messages for a conversation without authentication (for public sharing)
+export async function getPublicMessages(conversationId: string) {
+  const supabase = await createClient();
+
+  // Get all messages for the conversation, ordered by timestamp
+  const { data, error } = await supabase
+    .from("messages")
+    .select()
+    .eq("conversation_id", conversationId)
+    .order("timestamp", { ascending: true });
+
+  if (error) {
+    console.error("Error getting public messages:", error);
+    throw new Error(error.message);
+  }
+
+  return data;
+}
+
+// Get conversation details without authentication (for public sharing)
+export async function getPublicConversation(conversationId: string) {
+  const supabase = await createClient();
+
+  // Get the conversation details
+  const { data, error } = await supabase
+    .from("conversations")
+    .select()
+    .eq("conversation_id", conversationId)
+    .single();
+
+  if (error) {
+    console.error("Error getting public conversation:", error);
+    throw new Error(error.message);
+  }
+
+  return data;
+}
