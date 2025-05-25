@@ -3,30 +3,42 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { User, Bot, Send, Menu, Plus, ExternalLink, MessageSquare, Video } from "lucide-react";
+import { User, Bot, Send, Menu, Plus, ExternalLink, MessageSquare, Video, Loader2 } from "lucide-react";
 import { signOutAction } from "@/app/actions";
 import { ThemeSwitcher } from "./theme-switcher";
+import { 
+  createConversation, 
+  addMessage, 
+  getConversations, 
+  getMessages, 
+  updateConversationTitle,
+  type Conversation as ConversationType,
+  type Message as MessageType
+} from "@/app/chat-actions";
+import { createClient } from "@/utils/supabase/client";
+import { generateChatCompletion } from "@/utils/openai-client";
+import { ResponseStreamTypewriter } from "./prompt-kit/response-stream";
 
 type Message = {
   role: "user" | "assistant";
   content: string;
   timestamp?: Date;
   videoUrl?: string; // URL for video content
+  message_id?: string;
+  conversation_id?: string;
 };
 
 export default function ChatInterface() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content: "Hello! How can I help you today?",
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [conversations, setConversations] = useState<ConversationType[]>([]);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [chatTitle, setChatTitle] = useState("Relearn AI");
+  const [isLoadingConversations, setIsLoadingConversations] = useState(false);
+  const [isTitleUpdated, setIsTitleUpdated] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -39,6 +51,93 @@ export default function ChatInterface() {
     inputRef.current?.focus();
   }, []);
 
+  // Effect to update the title based on conversation content
+  useEffect(() => {
+    const updateTitle = async () => {
+      // Only update title if we have a conversation ID and enough messages
+      if (currentConversationId && messages.length >= 2 && !isTitleUpdated) {
+        // Need at least one user message to generate a meaningful title
+        const userMessages = messages.filter(msg => msg.role === "user");
+        if (userMessages.length > 0) {
+          const newTitle = generateTitle(messages);
+
+          // Only update if the title is different from the current one
+          if (newTitle !== chatTitle && newTitle !== "Relearn AI") {
+            setChatTitle(newTitle);
+
+            try {
+              // Update the title in the database
+              await updateConversationTitle(currentConversationId, newTitle);
+              setIsTitleUpdated(true);
+            } catch (error) {
+              console.error("Error updating conversation title:", error);
+            }
+          }
+        }
+      }
+    };
+
+    updateTitle();
+  }, [messages, currentConversationId, chatTitle, isTitleUpdated]);
+
+  // Load conversations when component mounts
+  useEffect(() => {
+    const loadConversations = async () => {
+      try {
+        setIsLoadingConversations(true);
+        const conversationsData = await getConversations();
+        setConversations(conversationsData);
+
+        // If there are conversations, select the most recent one
+        if (conversationsData.length > 0) {
+          setCurrentConversationId(conversationsData[0].conversation_id);
+          setChatTitle(conversationsData[0].title);
+          await loadMessages(conversationsData[0].conversation_id);
+        }
+      } catch (error) {
+        console.error("Error loading conversations:", error);
+      } finally {
+        setIsLoadingConversations(false);
+      }
+    };
+
+    // Check if user is authenticated using Supabase client
+    const checkAuth = async () => {
+      const supabase = createClient();
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        loadConversations();
+      }
+    };
+
+    checkAuth();
+  }, []);
+
+  // Load messages for a conversation
+  const loadMessages = async (conversationId: string) => {
+    try {
+      setIsLoading(true);
+      const messagesData = await getMessages(conversationId);
+
+      // Convert database messages to component message format
+      const formattedMessages = messagesData.map(msg => ({
+        role: msg.role,
+        content: msg.content,
+        timestamp: new Date(msg.timestamp),
+        videoUrl: msg.video_url,
+        message_id: msg.message_id,
+        conversation_id: msg.conversation_id
+      }));
+
+      setMessages(formattedMessages);
+      setCurrentConversationId(conversationId);
+    } catch (error) {
+      console.error("Error loading messages:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -49,27 +148,94 @@ export default function ChatInterface() {
       content: input,
       timestamp: new Date()
     };
+
+    // Add message to local state immediately for UI responsiveness
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
 
-    if (messages.length === 1 && messages[0].role === "assistant") {
-      const newTitle = userMessage.content.length > 30 
-        ? userMessage.content.substring(0, 30) + "..." 
-        : userMessage.content;
-      setChatTitle(newTitle);
-    }
+    try {
+      // If this is a new conversation, create it first
+      if (!currentConversationId) {
+        const newTitle = input.length > 30 
+          ? input.substring(0, 30) + "..." 
+          : input;
 
-    setTimeout(() => {
-      const aiMessage: Message = {
-        role: "assistant",
-        content: `I understand you're asking about "${userMessage.content}". Let me help with that. What specific aspects would you like to learn about?`,
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, aiMessage]);
+        const newConversation = await createConversation(newTitle);
+        setCurrentConversationId(newConversation.conversation_id);
+        setChatTitle(newTitle);
+        setIsTitleUpdated(false); // Reset flag when creating a new conversation
+
+        // Add the user message to the new conversation
+        await addMessage(
+          newConversation.conversation_id,
+          "user",
+          input
+        );
+
+        // Refresh conversations list
+        const conversationsData = await getConversations();
+        setConversations(conversationsData);
+      } else {
+        // Add the user message to the existing conversation
+        await addMessage(
+          currentConversationId,
+          "user",
+          input
+        );
+      }
+
+      // Call the AI service to generate a response
+      try {
+        // Convert the current messages to the format expected by the OpenAI API
+        const apiMessages = messages.map(msg => ({
+          role: msg.role,
+          content: msg.content
+        }));
+
+        // Add the current user message
+        apiMessages.push({
+          role: "user",
+          content: input
+        });
+
+        // Generate AI response using the OpenAI client
+        const aiResponse = await generateChatCompletion(apiMessages);
+
+        // Add AI message to database
+        if (currentConversationId) {
+          await addMessage(
+            currentConversationId,
+            "assistant",
+            aiResponse
+          );
+        }
+
+        // Add AI message to local state
+        const aiMessage: Message = {
+          role: "assistant",
+          content: aiResponse,
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, aiMessage]);
+        setIsLoading(false);
+        inputRef.current?.focus();
+      } catch (error) {
+        console.error("Error generating AI response:", error);
+
+        // Fallback response in case of error
+        const errorMessage: Message = {
+          role: "assistant",
+          content: "I'm sorry, I encountered an error while processing your request. Please try again later.",
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, errorMessage]);
+        setIsLoading(false);
+      }
+    } catch (error) {
+      console.error("Error in chat submission:", error);
       setIsLoading(false);
-      inputRef.current?.focus();
-    }, 1000);
+    }
   };
 
   const handleVideoGeneration = async () => {
@@ -84,36 +250,220 @@ export default function ChatInterface() {
     setInput("");
     setIsGeneratingVideo(true);
 
-    setTimeout(() => {
-      const videoUrl = "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+    try {
+      // If this is a new conversation, create it first
+      if (!currentConversationId) {
+        const newTitle = `Video: ${input.length > 25 
+          ? input.substring(0, 25) + "..." 
+          : input}`;
 
-      const aiMessage: Message = {
-        role: "assistant",
-        content: `Here's a video about "${input}" that might help explain the concept:`,
-        timestamp: new Date(),
-        videoUrl
-      };
-      setMessages(prev => [...prev, aiMessage]);
+        const newConversation = await createConversation(newTitle);
+        setCurrentConversationId(newConversation.conversation_id);
+        setChatTitle(newTitle);
+        setIsTitleUpdated(false); // Reset flag when creating a new video conversation
+
+        // Add the user message to the new conversation
+        await addMessage(
+          newConversation.conversation_id,
+          "user",
+          userMessage.content
+        );
+
+        // Refresh conversations list
+        const conversationsData = await getConversations();
+        setConversations(conversationsData);
+      } else {
+        // Add the user message to the existing conversation
+        await addMessage(
+          currentConversationId,
+          "user",
+          userMessage.content
+        );
+      }
+
+      // Generate video explanation using AI
+      try {
+        // For now, we'll use a sample video URL
+        // In a production app, you would integrate with a video generation service
+        const videoUrl = "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+
+        // Convert the current messages to the format expected by the OpenAI API
+        const apiMessages = messages.map(msg => ({
+          role: msg.role,
+          content: msg.content
+        }));
+
+        // Add a specific prompt for video explanation
+        apiMessages.push({
+          role: "user",
+          content: `Generate a detailed explanation about "${input}" that would be suitable for a video explanation. Focus on visual descriptions and step-by-step explanations.`
+        });
+
+        // Generate AI response using the OpenAI client
+        const aiResponse = await generateChatCompletion(apiMessages);
+
+        // Prepare the final response with video reference
+        const finalResponse = `Here's a video about "${input}" that might help explain the concept:\n\n${aiResponse}`;
+
+        // Add AI message with video to database
+        if (currentConversationId) {
+          await addMessage(
+            currentConversationId,
+            "assistant",
+            finalResponse,
+            videoUrl
+          );
+        }
+
+        // Add AI message to local state
+        const aiMessage: Message = {
+          role: "assistant",
+          content: finalResponse,
+          timestamp: new Date(),
+          videoUrl
+        };
+        setMessages(prev => [...prev, aiMessage]);
+        setIsGeneratingVideo(false);
+        inputRef.current?.focus();
+      } catch (error) {
+        console.error("Error generating video explanation:", error);
+
+        // Fallback response in case of error
+        const errorMessage: Message = {
+          role: "assistant",
+          content: "I'm sorry, I encountered an error while generating the video explanation. Please try again later.",
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, errorMessage]);
+        setIsGeneratingVideo(false);
+      }
+    } catch (error) {
+      console.error("Error in video generation:", error);
       setIsGeneratingVideo(false);
-      inputRef.current?.focus();
-    }, 3000);
+    }
   };
 
-  const startNewChat = () => {
-    setMessages([
-      {
-        role: "assistant",
-        content: "Hello! How can I help you today?",
-        timestamp: new Date(),
-      },
-    ]);
-    setChatTitle("Relearn AI"); // Reset the chat title
-    inputRef.current?.focus();
+  const startNewChat = async () => {
+    try {
+      // Create a new conversation in the database
+      const newConversation = await createConversation("Relearn AI");
+      setCurrentConversationId(newConversation.conversation_id);
+
+      // Generate a welcome message using the AI
+      try {
+        // Create a simple welcome prompt
+        const welcomePrompt = [
+          { 
+            role: "user", 
+            content: "Hello, I'd like to learn about STEM topics. Can you introduce yourself and explain how you can help me?" 
+          }
+        ];
+
+        // Generate AI welcome message
+        const aiWelcomeMessage = await generateChatCompletion(welcomePrompt);
+
+        // Add initial assistant message to database
+        await addMessage(
+          newConversation.conversation_id,
+          "assistant",
+          aiWelcomeMessage
+        );
+
+        // Update local state
+        setMessages([
+          {
+            role: "assistant",
+            content: aiWelcomeMessage,
+            timestamp: new Date(),
+            conversation_id: newConversation.conversation_id
+          },
+        ]);
+      } catch (error) {
+        console.error("Error generating welcome message:", error);
+
+        // Fallback to a default welcome message if AI generation fails
+        const defaultWelcomeMessage = "Hello! I'm your STEM learning assistant. I can help you understand concepts in Science, Technology, Engineering, and Mathematics. What would you like to learn about today?";
+
+        // Add default welcome message to database
+        await addMessage(
+          newConversation.conversation_id,
+          "assistant",
+          defaultWelcomeMessage
+        );
+
+        // Update local state with default message
+        setMessages([
+          {
+            role: "assistant",
+            content: defaultWelcomeMessage,
+            timestamp: new Date(),
+            conversation_id: newConversation.conversation_id
+          },
+        ]);
+      }
+
+      setChatTitle("Relearn AI");
+      setIsTitleUpdated(false); // Reset flag when starting a new chat
+
+      // Refresh conversations list
+      const conversationsData = await getConversations();
+      setConversations(conversationsData);
+
+      inputRef.current?.focus();
+    } catch (error) {
+      console.error("Error starting new chat:", error);
+    }
   };
 
   const formatTime = (date?: Date) => {
     if (!date) return "";
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  // Generate a meaningful title based on conversation content
+  const generateTitle = (messages: Message[]) => {
+    // Need at least a user message to generate a title
+    const userMessages = messages.filter(msg => msg.role === "user");
+    if (userMessages.length === 0) return "Relearn AI";
+
+    // Use the first user message as a base for the title
+    let firstUserMessage = userMessages[0].content;
+
+    // If there are multiple messages, try to create a more contextual title
+    if (userMessages.length > 1) {
+      // Extract key topics from user messages
+      const topics = userMessages
+        .map(msg => msg.content)
+        .join(" ")
+        .split(" ")
+        .filter(word => word.length > 3) // Filter out short words
+        .slice(0, 10) // Take first 10 words
+        .join(" ");
+
+      if (topics.length > 5) {
+        // If we have meaningful topics, use them
+        firstUserMessage = topics;
+      }
+    }
+
+    // Truncate and clean up the title
+    let title = firstUserMessage.trim();
+
+    // Check if it's a video-related conversation
+    const isVideoRelated = messages.some(msg => 
+      msg.videoUrl || msg.content.toLowerCase().includes("video")
+    );
+
+    if (isVideoRelated) {
+      title = "Video: " + title;
+    }
+
+    // Limit title length
+    if (title.length > 40) {
+      title = title.substring(0, 40) + "...";
+    }
+
+    return title;
   };
 
   return (
@@ -131,11 +481,41 @@ export default function ChatInterface() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-3">
-          <div className="text-xs text-gray-500 dark:text-gray-400 font-medium px-2 py-2 mb-1">Today</div>
-          <button className="flex items-center gap-2 text-sm w-full hover:bg-gray-100 dark:hover:bg-gray-900 rounded-md py-2 px-3 transition-colors">
-            <MessageSquare size={16} />
-            <span className="truncate">Previous conversation</span>
-          </button>
+          {isLoadingConversations ? (
+            <div className="flex justify-center items-center py-4">
+              <Loader2 className="h-4 w-4 animate-spin text-gray-500 dark:text-gray-400" />
+            </div>
+          ) : conversations.length > 0 ? (
+            <>
+              <div className="text-xs text-gray-500 dark:text-gray-400 font-medium px-2 py-2 mb-1">
+                Your conversations
+              </div>
+              {conversations.map((conversation) => (
+                <button 
+                  key={conversation.conversation_id}
+                  onClick={() => {
+                    if (conversation.conversation_id !== currentConversationId) {
+                      loadMessages(conversation.conversation_id);
+                      setChatTitle(conversation.title);
+                      setIsTitleUpdated(false); // Reset flag when switching conversations
+                    }
+                  }}
+                  className={`flex items-center gap-2 text-sm w-full rounded-md py-2 px-3 transition-colors ${
+                    conversation.conversation_id === currentConversationId 
+                      ? 'bg-gray-100 dark:bg-gray-800' 
+                      : 'hover:bg-gray-100 dark:hover:bg-gray-900'
+                  }`}
+                >
+                  <MessageSquare size={16} />
+                  <span className="truncate">{conversation.title}</span>
+                </button>
+              ))}
+            </>
+          ) : (
+            <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+              No conversations yet
+            </div>
+          )}
         </div>
 
         <div className="p-4 border-t border-gray-100 dark:border-gray-900">
@@ -177,41 +557,65 @@ export default function ChatInterface() {
           ref={chatContainerRef}
           className="flex-1 overflow-y-auto flex flex-col bg-white dark:bg-black"
         >
-          {messages.map((message, index) => (
-            <div
-              key={index}
-              className={`flex w-full ${message.role === "assistant" ? "bg-gray-50 dark:bg-gray-950" : ""} py-8`}
-            >
-              <div className="flex w-full max-w-4xl mx-auto px-6 items-start gap-5">
-                {message.role === "assistant" ? (
-                  <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
-                    <Bot className="h-4 w-4 text-gray-700 dark:text-gray-300" />
-                  </div>
-                ) : (
-                  <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
-                    <User className="h-4 w-4 text-gray-700 dark:text-gray-300" />
-                  </div>
-                )}
-
-                <div className="flex flex-col flex-1">
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                    {message.content}
-                  </div>
-                  {message.videoUrl && (
-                    <div className="mt-4">
-                      <video 
-                        controls 
-                        className="rounded-lg w-full max-w-2xl"
-                        src={message.videoUrl}
-                      >
-                        Your browser does not support the video tag.
-                      </video>
+          {messages.length > 0 ? (
+            messages.map((message, index) => (
+              <div
+                key={index}
+                className={`flex w-full ${message.role === "assistant" ? "bg-gray-50 dark:bg-gray-950" : ""} py-8`}
+              >
+                <div className="flex w-full max-w-4xl mx-auto px-6 items-start gap-5">
+                  {message.role === "assistant" ? (
+                    <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
+                      <Bot className="h-4 w-4 text-gray-700 dark:text-gray-300" />
+                    </div>
+                  ) : (
+                    <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
+                      <User className="h-4 w-4 text-gray-700 dark:text-gray-300" />
                     </div>
                   )}
+
+                  <div className="flex flex-col flex-1">
+                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                      {message.role === "assistant" ? (
+                        <div className="w-full min-w-full">
+                          <ResponseStreamTypewriter text={message.content} />
+                        </div>
+                      ) : (
+                        message.content
+                      )}
+                    </div>
+                    {message.videoUrl && (
+                      <div className="mt-4">
+                        <video 
+                          controls 
+                          className="rounded-lg w-full max-w-2xl"
+                          src={message.videoUrl}
+                        >
+                          Your browser does not support the video tag.
+                        </video>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
+            ))
+          ) : !isLoading && !isGeneratingVideo ? (
+            <div className="flex flex-col items-center justify-center h-full text-center p-8">
+              <Bot className="h-12 w-12 text-gray-300 dark:text-gray-700 mb-4" />
+              <h3 className="text-xl font-medium text-gray-900 dark:text-gray-100 mb-2">Welcome to Relearn AI</h3>
+              <p className="text-gray-500 dark:text-gray-400 max-w-md mb-6">
+                {currentConversationId 
+                  ? "This conversation is empty. Start by sending a message below."
+                  : "Start a new conversation or select an existing one from the sidebar."}
+              </p>
+              {!currentConversationId && (
+                <Button onClick={startNewChat} className="flex items-center gap-2">
+                  <Plus size={16} />
+                  New conversation
+                </Button>
+              )}
             </div>
-          ))}
+          ) : null}
 
           {(isLoading || isGeneratingVideo) && (
             <div className="flex w-full bg-gray-50 dark:bg-gray-950 py-8">
@@ -253,8 +657,14 @@ export default function ChatInterface() {
                 ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder={isGeneratingVideo ? "Generating video..." : `Message ${chatTitle}...`}
-                disabled={isLoading || isGeneratingVideo}
+                placeholder={
+                  isGeneratingVideo 
+                    ? "Generating video..." 
+                    : !currentConversationId && conversations.length > 0
+                      ? "Select a conversation or start a new one..."
+                      : `Message ${chatTitle}...`
+                }
+                disabled={isLoading || isGeneratingVideo || (!currentConversationId && conversations.length > 0)}
                 className="w-full py-5 px-4 pr-12 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 text-gray-800 dark:text-gray-200 focus:ring-1 focus:ring-gray-300 dark:focus:ring-gray-700"
               />
               <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex gap-2">
@@ -264,7 +674,7 @@ export default function ChatInterface() {
                     e.preventDefault();
                     handleVideoGeneration();
                   }}
-                  disabled={isGeneratingVideo || isLoading || !input.trim()}
+                  disabled={isGeneratingVideo || isLoading || !input.trim() || (!currentConversationId && conversations.length > 0)}
                   className="p-1.5 rounded-lg"
                   size="icon"
                   variant="ghost"
@@ -273,7 +683,7 @@ export default function ChatInterface() {
                 </Button>
                 <Button 
                   type="submit" 
-                  disabled={isLoading || isGeneratingVideo || !input.trim()}
+                  disabled={isLoading || isGeneratingVideo || !input.trim() || (!currentConversationId && conversations.length > 0)}
                   className="p-1.5 rounded-lg"
                   size="icon"
                   variant="ghost"

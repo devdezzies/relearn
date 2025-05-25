@@ -65,9 +65,12 @@ If you wish to just develop locally and not deploy to Vercel, [follow the steps 
    ```
    NEXT_PUBLIC_SUPABASE_URL=[INSERT SUPABASE PROJECT URL]
    NEXT_PUBLIC_SUPABASE_ANON_KEY=[INSERT SUPABASE PROJECT API ANON KEY]
+   OPENAI_API_KEY=[INSERT YOUR OPENAI API KEY]
    ```
 
    Both `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` can be found in [your Supabase project's API settings](https://app.supabase.com/project/_/settings/api)
+
+   The `OPENAI_API_KEY` is required for the AI chat functionality. You can obtain an API key from the Alibaba Dashscope API or OpenAI.
 
 5. You can now run the Next.js local development server:
 

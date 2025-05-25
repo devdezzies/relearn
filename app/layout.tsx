@@ -50,9 +50,6 @@ export default function RootLayout({
               </div>
 
               <footer className="w-full flex flex-col md:flex-row items-center justify-center border-t mx-auto text-center text-xs gap-4 md:gap-8 py-12">
-                <p className="text-muted-foreground">
-                  © {new Date().getFullYear()} Relearn - Educational AI Chatbot
-                </p>
                 <p>
                   Made for{" "}
                   <a
