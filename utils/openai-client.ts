@@ -1,8 +1,8 @@
 import OpenAI from "openai";
 
-// Initialize the OpenAI client with Alibaba Dashscope API configuration
+// Initialize the OpenAI client with Groq API configuration
 const openai = new OpenAI({
-  apiKey: "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",
+  apiKey: process.env.OPENAI_API_KEY || "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",
   baseURL: "https://api.groq.com/openai/v1",
   dangerouslyAllowBrowser: true,
 });

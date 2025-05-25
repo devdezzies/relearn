@@ -337,9 +337,11 @@ export default function ChatInterface() {
 
       // Generate video explanation using AI
       try {
-        // For now, we'll use a sample video URL
-        // In a production app, you would integrate with a video generation service
-        const videoUrl = "https://tlxtnbjmkuwlafilbgfn.supabase.co/storage/v1/object/public/video//hello_world_PlotExceedsYRangeProblem_1748101319.mp4";
+        // Get video URL from environment variable or use a default for development
+        const videoUrl = process.env.NEXT_PUBLIC_SAMPLE_VIDEO_URL || 
+          "https://tlxtnbjmkuwlafilbgfn.supabase.co/storage/v1/object/public/video//hello_world_PlotExceedsYRangeProblem_1748101319.mp4";
+
+        // TODO: In a production app, integrate with a proper video generation service
 
         // Convert the current messages to the format expected by the OpenAI API
         const apiMessages = messages.map(msg => ({
@@ -861,9 +863,6 @@ export default function ChatInterface() {
                 </Button>
               </div>
             </form>
-            {/* <div className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-              Disclaimer text here
-            </div> */}
           </div>
         </div>
       </div>
