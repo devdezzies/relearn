@@ -9,6 +9,7 @@ import rehypeKatex from "rehype-katex";
 import rehypeRaw from "rehype-raw";
 import { MermaidDiagram } from "./mermaid-diagram";
 import { extractMermaidDiagrams, ParallelMermaidDiagram } from "./parallel-mermaid-diagram";
+import { extractMatplotlibCode, ParallelMatplotlibVisualization } from "./parallel-matplotlib-visualization";
 
 interface MarkdownResponseStreamProps {
   textStream: string;
@@ -27,6 +28,7 @@ export function MarkdownResponseStream({
 }: MarkdownResponseStreamProps) {
   const [displayedText, setDisplayedText] = useState("");
   const [diagrams, setDiagrams] = useState<{ id: string; chart: string; placeholder: string }[]>([]);
+  const [matplotlibBlocks, setMatplotlibBlocks] = useState<{ id: string; code: string; placeholder: string }[]>([]);
 
   // Use the useTextStream hook to get the current text as it streams
   const { displayedText: currentText, isComplete } = useTextStream({
@@ -51,22 +53,26 @@ export function MarkdownResponseStream({
     }
   }, [isComplete, onStreamComplete]);
 
-  // Extract diagrams and update the displayed text as it streams
+  // Extract diagrams and matplotlib code blocks and update the displayed text as it streams
   useEffect(() => {
-    // Extract mermaid diagrams from the text
-    const { cleanContent: contentWithoutDiagrams, diagrams: extractedDiagrams } = extractMermaidDiagrams(currentText);
+    // First, extract matplotlib code blocks
+    const { cleanContent: contentWithoutMatplotlib, matplotlibBlocks: extractedMatplotlib } = extractMatplotlibCode(currentText);
 
-    // Update diagrams state
+    // Then, extract mermaid diagrams from the remaining text
+    const { cleanContent: finalCleanContent, diagrams: extractedDiagrams } = extractMermaidDiagrams(contentWithoutMatplotlib);
+
+    // Update states
+    setMatplotlibBlocks(extractedMatplotlib);
     setDiagrams(extractedDiagrams);
 
-    // Update displayed text
-    setDisplayedText(contentWithoutDiagrams);
+    // Update displayed text with all visualizations removed
+    setDisplayedText(finalCleanContent);
   }, [currentText]);
 
-  // Function to render text with diagram placeholders replaced by actual diagrams
-  const renderTextWithDiagrams = () => {
-    // If no diagrams, just return the text
-    if (diagrams.length === 0) {
+  // Function to render text with diagram and matplotlib placeholders replaced by actual visualizations
+  const renderTextWithVisualizations = () => {
+    // If no diagrams or matplotlib blocks, just return the text
+    if (diagrams.length === 0 && matplotlibBlocks.length === 0) {
       return (
         <ReactMarkdown 
           remarkPlugins={[remarkGfm, remarkMath]}
@@ -75,7 +81,7 @@ export function MarkdownResponseStream({
             code({ node, inline, className, children, ...props }) {
               const match = /language-(\w+)/.exec(className || '');
 
-              // Default code rendering (no mermaid handling here)
+              // Default code rendering (no special handling here)
               return (
                 <code className={className} {...props}>
                   {children}
@@ -89,19 +95,32 @@ export function MarkdownResponseStream({
       );
     }
 
-    // Split content by diagram placeholders
-    const parts = displayedText.split(/(\[DIAGRAM:[a-z0-9-]+\])/);
+    // Create a combined regex pattern to match both diagram and matplotlib placeholders
+    const placeholderPattern = /(\[DIAGRAM:[a-z0-9-]+\]|\[MATPLOTLIB:[a-z0-9-]+\])/;
+
+    // Split content by all placeholders
+    const parts = displayedText.split(placeholderPattern);
 
     return (
       <>
         {parts.map((part, index) => {
           // Check if this part is a diagram placeholder
-          const match = part.match(/\[DIAGRAM:([a-z0-9-]+)\]/);
-          if (match) {
-            const diagramId = match[1];
+          const diagramMatch = part.match(/\[DIAGRAM:([a-z0-9-]+)\]/);
+          if (diagramMatch) {
+            const diagramId = diagramMatch[1];
             const diagram = diagrams.find(d => d.id === diagramId);
             if (diagram) {
               return <ParallelMermaidDiagram key={diagramId} id={diagramId} chart={diagram.chart} />;
+            }
+          }
+
+          // Check if this part is a matplotlib placeholder
+          const matplotlibMatch = part.match(/\[MATPLOTLIB:([a-z0-9-]+)\]/);
+          if (matplotlibMatch) {
+            const matplotlibId = matplotlibMatch[1];
+            const matplotlib = matplotlibBlocks.find(m => m.id === matplotlibId);
+            if (matplotlib) {
+              return <ParallelMatplotlibVisualization key={matplotlibId} id={matplotlibId} code={matplotlib.code} />;
             }
           }
 
@@ -113,7 +132,7 @@ export function MarkdownResponseStream({
               rehypePlugins={[rehypeKatex, rehypeRaw]}
               components={{
                 code({ node, inline, className, children, ...props }) {
-                  // Default code rendering (no mermaid handling here)
+                  // Default code rendering (no special handling here)
                   return (
                     <code className={className} {...props}>
                       {children}
@@ -133,7 +152,7 @@ export function MarkdownResponseStream({
   return (
     <div className="w-full min-w-full">
       <div className="markdown-content">
-        {renderTextWithDiagrams()}
+        {renderTextWithVisualizations()}
       </div>
     </div>
   );
