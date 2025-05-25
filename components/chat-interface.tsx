@@ -6,6 +6,7 @@ import { Input } from "./ui/input";
 import { User, Bot, Send, Menu, Plus, ExternalLink, MessageSquare, Video, Loader2, Trash2 } from "lucide-react";
 import { signOutAction } from "@/app/actions";
 import { ThemeSwitcher } from "./theme-switcher";
+import { AlertDialog } from "./ui/alert-dialog";
 import { 
   createConversation, 
   addMessage, 
@@ -51,6 +52,9 @@ export default function ChatInterface() {
   const [isTitleUpdated, setIsTitleUpdated] = useState(false);
   const [isResponseStreaming, setIsResponseStreaming] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
+  const [alertMessage, setAlertMessage] = useState("");
+  const [alertTitle, setAlertTitle] = useState("Notice");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -521,6 +525,10 @@ export default function ChatInterface() {
             onClick={() => {
               if (isResponseStreaming) {
                 alert("Cannot start a new chat while a response is being generated. Please wait for the current response to complete.");
+              } else if (conversations.length > 0 && conversations[0].conversation_id === currentConversationId && messages.length === 0) {
+                setAlertTitle("Conversation Empty");
+                setAlertMessage("Please add a message to the current conversation first before creating a new chat.");
+                setIsAlertOpen(true);
               } else {
                 startNewChat();
               }
@@ -866,6 +874,14 @@ export default function ChatInterface() {
           </div>
         </div>
       </div>
+
+      {/* Alert Dialog for empty conversation warning */}
+      <AlertDialog
+        isOpen={isAlertOpen}
+        onClose={() => setIsAlertOpen(false)}
+        title={alertTitle}
+        message={alertMessage}
+      />
     </div>
   );
 }
