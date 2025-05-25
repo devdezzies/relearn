@@ -49,21 +49,6 @@ export default function RootLayout({
               <div className="flex flex-col gap-20 max-w-5xl p-5">
                 {children}
               </div>
-
-              <footer className="w-full flex flex-col md:flex-row items-center justify-center border-t mx-auto text-center text-xs gap-4 md:gap-8 py-12">
-                <p>
-                  Made for{" "}
-                  <a
-                    href="#"
-                    target="_blank"
-                    className="font-medium hover:underline"
-                    rel="noreferrer"
-                  >
-                    Alibaba GenAI Hackathon
-                  </a>
-                </p>
-                <ThemeSwitcher />
-              </footer>
             </div>
           </main>
         </ThemeProvider>
