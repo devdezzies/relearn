@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { User, Bot, Send, Menu, Plus, ExternalLink, MessageSquare, Video, Loader2 } from "lucide-react";
+import { User, Bot, Send, Menu, Plus, ExternalLink, MessageSquare, Video, Loader2, Trash2 } from "lucide-react";
 import { signOutAction } from "@/app/actions";
 import { ThemeSwitcher } from "./theme-switcher";
 import { 
@@ -12,12 +12,20 @@ import {
   getConversations, 
   getMessages, 
   updateConversationTitle,
+  deleteConversation,
   type Conversation as ConversationType,
   type Message as MessageType
 } from "@/app/chat-actions";
 import { createClient } from "@/utils/supabase/client";
 import { generateChatCompletion } from "@/utils/openai-client";
-import { ResponseStreamTypewriter } from "./prompt-kit/response-stream";
+import { ResponseStream } from "./prompt-kit/response-stream";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import rehypeRaw from "rehype-raw";
+import { MarkdownResponseStream } from "./markdown-response-stream";
+import { MermaidDiagram } from "./mermaid-diagram";
 
 type Message = {
   role: "user" | "assistant";
@@ -26,7 +34,9 @@ type Message = {
   videoUrl?: string; // URL for video content
   message_id?: string;
   conversation_id?: string;
+  isNew?: boolean; // Flag to indicate if this is a new message that should use typewriter effect
 };
+
 
 export default function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -39,6 +49,7 @@ export default function ChatInterface() {
   const [chatTitle, setChatTitle] = useState("Relearn AI");
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
   const [isTitleUpdated, setIsTitleUpdated] = useState(false);
+  const [isResponseStreaming, setIsResponseStreaming] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -46,6 +57,25 @@ export default function ChatInterface() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Add a warning message if the user tries to navigate away while a response is streaming
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isResponseStreaming) {
+        // Standard way to show a confirmation dialog
+        e.preventDefault();
+        // Chrome requires returnValue to be set
+        e.returnValue = '';
+        // Message (may not be displayed in modern browsers, but required)
+        return 'A response is still being generated. Are you sure you want to leave?';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [isResponseStreaming]);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -115,6 +145,9 @@ export default function ChatInterface() {
 
   // Load messages for a conversation
   const loadMessages = async (conversationId: string) => {
+    // Don't load messages if a response is currently streaming
+    if (isResponseStreaming || isGeneratingVideo) return;
+
     try {
       setIsLoading(true);
       const messagesData = await getMessages(conversationId);
@@ -126,7 +159,8 @@ export default function ChatInterface() {
         timestamp: new Date(msg.timestamp),
         videoUrl: msg.video_url,
         message_id: msg.message_id,
-        conversation_id: msg.conversation_id
+        conversation_id: msg.conversation_id,
+        isNew: false // These are existing messages, so they should not use the typewriter effect
       }));
 
       setMessages(formattedMessages);
@@ -141,12 +175,13 @@ export default function ChatInterface() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!input.trim()) return;
+    if (!input.trim() || isResponseStreaming || isLoading || isGeneratingVideo) return;
 
     const userMessage: Message = { 
       role: "user", 
       content: input,
-      timestamp: new Date()
+      timestamp: new Date(),
+      isNew: true // This is a new message
     };
 
     // Add message to local state immediately for UI responsiveness
@@ -155,23 +190,22 @@ export default function ChatInterface() {
     setIsLoading(true);
 
     try {
-      // If this is a new conversation, create it first
+      // If this is a new conversation, create it with the initial message
       if (!currentConversationId) {
         const newTitle = input.length > 30 
           ? input.substring(0, 30) + "..." 
           : input;
 
-        const newConversation = await createConversation(newTitle);
+        // Create a new conversation with the initial user message
+        // This is more efficient than creating a conversation and then adding a message separately
+        const newConversation = await createConversation(newTitle, {
+          role: "user",
+          content: input
+        });
+
         setCurrentConversationId(newConversation.conversation_id);
         setChatTitle(newTitle);
         setIsTitleUpdated(false); // Reset flag when creating a new conversation
-
-        // Add the user message to the new conversation
-        await addMessage(
-          newConversation.conversation_id,
-          "user",
-          input
-        );
 
         // Refresh conversations list
         const conversationsData = await getConversations();
@@ -215,7 +249,8 @@ export default function ChatInterface() {
         const aiMessage: Message = {
           role: "assistant",
           content: aiResponse,
-          timestamp: new Date()
+          timestamp: new Date(),
+          isNew: true // This is a new message that should use typewriter effect
         };
         setMessages(prev => [...prev, aiMessage]);
         setIsLoading(false);
@@ -227,7 +262,8 @@ export default function ChatInterface() {
         const errorMessage: Message = {
           role: "assistant",
           content: "I'm sorry, I encountered an error while processing your request. Please try again later.",
-          timestamp: new Date()
+          timestamp: new Date(),
+          isNew: true // This is a new message that should use typewriter effect
         };
         setMessages(prev => [...prev, errorMessage]);
         setIsLoading(false);
@@ -239,35 +275,35 @@ export default function ChatInterface() {
   };
 
   const handleVideoGeneration = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || isResponseStreaming || isLoading || isGeneratingVideo) return;
 
     const userMessage: Message = { 
       role: "user", 
       content: `Generate a video about: ${input}`,
-      timestamp: new Date()
+      timestamp: new Date(),
+      isNew: true // This is a new message
     };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsGeneratingVideo(true);
 
     try {
-      // If this is a new conversation, create it first
+      // If this is a new conversation, create it with the initial message
       if (!currentConversationId) {
         const newTitle = `Video: ${input.length > 25 
           ? input.substring(0, 25) + "..." 
           : input}`;
 
-        const newConversation = await createConversation(newTitle);
+        // Create a new conversation with the initial user message
+        // This is more efficient than creating a conversation and then adding a message separately
+        const newConversation = await createConversation(newTitle, {
+          role: "user",
+          content: userMessage.content
+        });
+
         setCurrentConversationId(newConversation.conversation_id);
         setChatTitle(newTitle);
         setIsTitleUpdated(false); // Reset flag when creating a new video conversation
-
-        // Add the user message to the new conversation
-        await addMessage(
-          newConversation.conversation_id,
-          "user",
-          userMessage.content
-        );
 
         // Refresh conversations list
         const conversationsData = await getConversations();
@@ -285,7 +321,7 @@ export default function ChatInterface() {
       try {
         // For now, we'll use a sample video URL
         // In a production app, you would integrate with a video generation service
-        const videoUrl = "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+        const videoUrl = "https://tlxtnbjmkuwlafilbgfn.supabase.co/storage/v1/object/public/video//hello_world_PlotExceedsYRangeProblem_1748101319.mp4";
 
         // Convert the current messages to the format expected by the OpenAI API
         const apiMessages = messages.map(msg => ({
@@ -320,7 +356,8 @@ export default function ChatInterface() {
           role: "assistant",
           content: finalResponse,
           timestamp: new Date(),
-          videoUrl
+          videoUrl,
+          isNew: true // This is a new message that should use typewriter effect
         };
         setMessages(prev => [...prev, aiMessage]);
         setIsGeneratingVideo(false);
@@ -332,7 +369,8 @@ export default function ChatInterface() {
         const errorMessage: Message = {
           role: "assistant",
           content: "I'm sorry, I encountered an error while generating the video explanation. Please try again later.",
-          timestamp: new Date()
+          timestamp: new Date(),
+          isNew: true // This is a new message that should use typewriter effect
         };
         setMessages(prev => [...prev, errorMessage]);
         setIsGeneratingVideo(false);
@@ -343,64 +381,49 @@ export default function ChatInterface() {
     }
   };
 
-  const startNewChat = async () => {
+  // Handle deleting a conversation
+  const handleDeleteConversation = async (conversationId: string) => {
+    // Don't delete a conversation if a response is currently streaming
+    if (isResponseStreaming || isLoading || isGeneratingVideo) return;
+
     try {
-      // Create a new conversation in the database
-      const newConversation = await createConversation("Relearn AI");
+      // If we're deleting the current conversation, clear the UI first
+      if (conversationId === currentConversationId) {
+        setMessages([]);
+        setCurrentConversationId(null);
+        setChatTitle("Relearn AI");
+      }
+
+      // Delete the conversation from the database
+      await deleteConversation(conversationId);
+
+      // Refresh the conversations list
+      const conversationsData = await getConversations();
+      setConversations(conversationsData);
+
+      // If we deleted the current conversation and there are other conversations,
+      // select the first one
+      if (conversationId === currentConversationId && conversationsData.length > 0) {
+        loadMessages(conversationsData[0].conversation_id);
+        setChatTitle(conversationsData[0].title);
+      }
+    } catch (error) {
+      console.error("Error deleting conversation:", error);
+    }
+  };
+
+  const startNewChat = async () => {
+    // Don't start a new chat if a response is currently streaming
+    if (isResponseStreaming || isLoading || isGeneratingVideo) return;
+
+    try {
+      // Create a new empty conversation without any initial message
+      const newConversation = await createConversation("Relearn AI", null);
+
       setCurrentConversationId(newConversation.conversation_id);
 
-      // Generate a welcome message using the AI
-      try {
-        // Create a simple welcome prompt
-        const welcomePrompt = [
-          { 
-            role: "user", 
-            content: "Hello, I'd like to learn about STEM topics. Can you introduce yourself and explain how you can help me?" 
-          }
-        ];
-
-        // Generate AI welcome message
-        const aiWelcomeMessage = await generateChatCompletion(welcomePrompt);
-
-        // Add initial assistant message to database
-        await addMessage(
-          newConversation.conversation_id,
-          "assistant",
-          aiWelcomeMessage
-        );
-
-        // Update local state
-        setMessages([
-          {
-            role: "assistant",
-            content: aiWelcomeMessage,
-            timestamp: new Date(),
-            conversation_id: newConversation.conversation_id
-          },
-        ]);
-      } catch (error) {
-        console.error("Error generating welcome message:", error);
-
-        // Fallback to a default welcome message if AI generation fails
-        const defaultWelcomeMessage = "Hello! I'm your STEM learning assistant. I can help you understand concepts in Science, Technology, Engineering, and Mathematics. What would you like to learn about today?";
-
-        // Add default welcome message to database
-        await addMessage(
-          newConversation.conversation_id,
-          "assistant",
-          defaultWelcomeMessage
-        );
-
-        // Update local state with default message
-        setMessages([
-          {
-            role: "assistant",
-            content: defaultWelcomeMessage,
-            timestamp: new Date(),
-            conversation_id: newConversation.conversation_id
-          },
-        ]);
-      }
+      // Update local state with empty messages array
+      setMessages([]);
 
       setChatTitle("Relearn AI");
       setIsTitleUpdated(false); // Reset flag when starting a new chat
@@ -472,8 +495,15 @@ export default function ChatInterface() {
       <div className={`${isSidebarOpen ? 'w-64' : 'w-0'} bg-white dark:bg-gray-950 text-black dark:text-white transition-all duration-300 flex flex-col h-full overflow-hidden border-r border-gray-100 dark:border-gray-900`}>
         <div className="p-4 flex items-center justify-between">
           <button 
-            onClick={startNewChat}
-            className="flex items-center gap-2 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-900 rounded-md py-2 px-3 w-full transition-colors"
+            onClick={() => {
+              if (isResponseStreaming) {
+                alert("Cannot start a new chat while a response is being generated. Please wait for the current response to complete.");
+              } else {
+                startNewChat();
+              }
+            }}
+            className={`flex items-center gap-2 text-sm font-medium ${!isResponseStreaming ? 'hover:bg-gray-100 dark:hover:bg-gray-900' : 'opacity-50 cursor-not-allowed'} rounded-md py-2 px-3 w-full transition-colors`}
+            disabled={isResponseStreaming}
           >
             <Plus size={16} />
             New chat
@@ -491,24 +521,46 @@ export default function ChatInterface() {
                 Your conversations
               </div>
               {conversations.map((conversation) => (
-                <button 
+                <div 
                   key={conversation.conversation_id}
-                  onClick={() => {
-                    if (conversation.conversation_id !== currentConversationId) {
-                      loadMessages(conversation.conversation_id);
-                      setChatTitle(conversation.title);
-                      setIsTitleUpdated(false); // Reset flag when switching conversations
-                    }
-                  }}
-                  className={`flex items-center gap-2 text-sm w-full rounded-md py-2 px-3 transition-colors ${
+                  className={`flex items-center justify-between text-sm w-full rounded-md py-2 px-3 transition-colors ${
                     conversation.conversation_id === currentConversationId 
                       ? 'bg-gray-100 dark:bg-gray-800' 
                       : 'hover:bg-gray-100 dark:hover:bg-gray-900'
                   }`}
                 >
-                  <MessageSquare size={16} />
-                  <span className="truncate">{conversation.title}</span>
-                </button>
+                  <button 
+                    onClick={() => {
+                      if (isResponseStreaming) {
+                        alert("Cannot switch conversations while a response is being generated. Please wait for the current response to complete.");
+                      } else if (conversation.conversation_id !== currentConversationId) {
+                        loadMessages(conversation.conversation_id);
+                        setChatTitle(conversation.title);
+                        setIsTitleUpdated(false); // Reset flag when switching conversations
+                      }
+                    }}
+                    className={`flex items-center gap-2 flex-1 text-left ${isResponseStreaming ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    disabled={isResponseStreaming}
+                  >
+                    <MessageSquare size={16} />
+                    <span className="truncate">{conversation.title.length > 15 ? conversation.title.substring(0, 15) + '...' : conversation.title}</span>
+                  </button>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isResponseStreaming) {
+                        alert("Cannot delete conversation while a response is being generated. Please wait for the current response to complete.");
+                      } else {
+                        handleDeleteConversation(conversation.conversation_id);
+                      }
+                    }}
+                    className={`p-1 rounded-md ${!isResponseStreaming ? 'hover:bg-gray-200 dark:hover:bg-gray-700' : 'opacity-50 cursor-not-allowed'} transition-colors`}
+                    aria-label="Delete conversation"
+                    disabled={isResponseStreaming}
+                  >
+                    <Trash2 size={14} className="text-gray-500 dark:text-gray-400" />
+                  </button>
+                </div>
               ))}
             </>
           ) : (
@@ -541,14 +593,21 @@ export default function ChatInterface() {
         {/* Header */}
         <div className="p-4 flex items-center justify-between bg-white dark:bg-black sticky top-0 z-10 border-b border-gray-100 dark:border-gray-900">
           <button 
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
+            onClick={() => {
+              if (isResponseStreaming) {
+                alert("Cannot toggle sidebar while a response is being generated. Please wait for the current response to complete.");
+              } else {
+                setIsSidebarOpen(!isSidebarOpen);
+              }
+            }}
+            className={`p-2 rounded-md ${!isResponseStreaming ? 'hover:bg-gray-100 dark:hover:bg-gray-900' : 'opacity-50 cursor-not-allowed'} transition-colors`}
+            disabled={isResponseStreaming}
           >
             <Menu size={18} className="text-gray-500 dark:text-gray-400" />
           </button>
           <h2 className="font-medium text-gray-800 dark:text-gray-200">{chatTitle}</h2>
           <div className="text-xs text-gray-500 dark:text-gray-400">
-            {isGeneratingVideo ? "Generating video..." : isLoading ? "Typing..." : ""}
+            {isGeneratingVideo ? "Generating video..." : isLoading ? "Typing..." : isResponseStreaming ? "Responding..." : ""}
           </div>
         </div>
 
@@ -561,7 +620,7 @@ export default function ChatInterface() {
             messages.map((message, index) => (
               <div
                 key={index}
-                className={`flex w-full ${message.role === "assistant" ? "bg-gray-50 dark:bg-gray-950" : ""} py-8`}
+                className="flex w-full py-8"
               >
                 <div className="flex w-full max-w-4xl mx-auto px-6 items-start gap-5">
                   {message.role === "assistant" ? (
@@ -578,7 +637,23 @@ export default function ChatInterface() {
                     <div className="prose prose-sm dark:prose-invert max-w-none">
                       {message.role === "assistant" ? (
                         <div className="w-full min-w-full">
-                          <ResponseStreamTypewriter text={message.content} />
+                          {message.isNew ? (
+                            <MarkdownResponseStream 
+                              textStream={message.content} 
+                              mode="fade" 
+                              speed={80}
+                              onStreamStart={() => setIsResponseStreaming(true)}
+                              onStreamComplete={() => setIsResponseStreaming(false)}
+                            />
+                          ) : (
+                            // For existing messages, use MarkdownResponseStream with the full content
+                            // This ensures consistent rendering between new and existing messages
+                            <MarkdownResponseStream 
+                              textStream={message.content} 
+                              mode="fade" 
+                              speed={0} // Speed 0 means instant rendering for existing messages
+                            />
+                          )}
                         </div>
                       ) : (
                         message.content
@@ -595,21 +670,26 @@ export default function ChatInterface() {
                         </video>
                       </div>
                     )}
+
                   </div>
                 </div>
               </div>
             ))
           ) : !isLoading && !isGeneratingVideo ? (
             <div className="flex flex-col items-center justify-center h-full text-center p-8">
-              <Bot className="h-12 w-12 text-gray-300 dark:text-gray-700 mb-4" />
-              <h3 className="text-xl font-medium text-gray-900 dark:text-gray-100 mb-2">Welcome to Relearn AI</h3>
-              <p className="text-gray-500 dark:text-gray-400 max-w-md mb-6">
-                {currentConversationId 
-                  ? "This conversation is empty. Start by sending a message below."
-                  : "Start a new conversation or select an existing one from the sidebar."}
-              </p>
+              <Bot className="h-16 w-16 text-gray-300 dark:text-gray-700 mb-4" />
               {!currentConversationId && (
-                <Button onClick={startNewChat} className="flex items-center gap-2">
+                <Button 
+                  onClick={() => {
+                    if (isResponseStreaming) {
+                      alert("Cannot start a new conversation while a response is being generated. Please wait for the current response to complete.");
+                    } else {
+                      startNewChat();
+                    }
+                  }} 
+                  className={`flex items-center gap-2 ${isResponseStreaming ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  disabled={isResponseStreaming}
+                >
                   <Plus size={16} />
                   New conversation
                 </Button>
@@ -618,7 +698,7 @@ export default function ChatInterface() {
           ) : null}
 
           {(isLoading || isGeneratingVideo) && (
-            <div className="flex w-full bg-gray-50 dark:bg-gray-950 py-8">
+            <div className="flex w-full py-8">
               <div className="flex w-full max-w-4xl mx-auto px-6 items-start gap-5">
                 <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
                   <Bot className="h-4 w-4 text-gray-700 dark:text-gray-300" />
@@ -660,11 +740,13 @@ export default function ChatInterface() {
                 placeholder={
                   isGeneratingVideo 
                     ? "Generating video..." 
+                    : isResponseStreaming
+                      ? "Wait for response to complete..."
                     : !currentConversationId && conversations.length > 0
                       ? "Select a conversation or start a new one..."
                       : `Message ${chatTitle}...`
                 }
-                disabled={isLoading || isGeneratingVideo || (!currentConversationId && conversations.length > 0)}
+                disabled={isLoading || isGeneratingVideo || isResponseStreaming || (!currentConversationId && conversations.length > 0)}
                 className="w-full py-5 px-4 pr-12 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 text-gray-800 dark:text-gray-200 focus:ring-1 focus:ring-gray-300 dark:focus:ring-gray-700"
               />
               <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex gap-2">
@@ -674,7 +756,7 @@ export default function ChatInterface() {
                     e.preventDefault();
                     handleVideoGeneration();
                   }}
-                  disabled={isGeneratingVideo || isLoading || !input.trim() || (!currentConversationId && conversations.length > 0)}
+                  disabled={isGeneratingVideo || isLoading || isResponseStreaming || !input.trim() || (!currentConversationId && conversations.length > 0)}
                   className="p-1.5 rounded-lg"
                   size="icon"
                   variant="ghost"
@@ -683,7 +765,7 @@ export default function ChatInterface() {
                 </Button>
                 <Button 
                   type="submit" 
-                  disabled={isLoading || isGeneratingVideo || !input.trim() || (!currentConversationId && conversations.length > 0)}
+                  disabled={isLoading || isGeneratingVideo || isResponseStreaming || !input.trim() || (!currentConversationId && conversations.length > 0)}
                   className="p-1.5 rounded-lg"
                   size="icon"
                   variant="ghost"

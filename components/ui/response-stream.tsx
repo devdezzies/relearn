@@ -251,7 +251,16 @@ function useTextStream({
   }, [textStream, isComplete, processStringTypewriter])
 
   useEffect(() => {
-    startStreaming()
+    // If speed is 0, skip animation and display the full text immediately
+    if (speedRef.current === 0 && typeof textStream === 'string') {
+      setDisplayedText(textStream);
+      if (modeRef.current === "fade") {
+        updateSegments(textStream);
+      }
+      markComplete();
+    } else {
+      startStreaming();
+    }
 
     return () => {
       if (animationRef.current) {
@@ -261,7 +270,7 @@ function useTextStream({
         streamRef.current.abort()
       }
     }
-  }, [textStream, startStreaming])
+  }, [textStream, startStreaming, updateSegments, markComplete])
 
   return {
     displayedText,
@@ -333,7 +342,7 @@ function ResponseStream({
       from { opacity: 0; }
       to { opacity: 1; }
     }
-    
+
     .fade-segment {
       display: inline-block;
       opacity: 0;
