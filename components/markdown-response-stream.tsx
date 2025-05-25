@@ -10,7 +10,7 @@ import rehypeRaw from "rehype-raw";
 import { MermaidDiagram } from "./mermaid-diagram";
 import { extractMermaidDiagrams, ParallelMermaidDiagram } from "./parallel-mermaid-diagram";
 import { Button } from "./ui/button";
-import { Download } from "lucide-react";
+import { Download, MessageSquare } from "lucide-react";
 
 interface MarkdownResponseStreamProps {
   textStream: string;
@@ -18,6 +18,7 @@ interface MarkdownResponseStreamProps {
   speed?: number;
   onStreamStart?: () => void;
   onStreamComplete?: () => void;
+  onReply?: () => void;
 }
 
 export function MarkdownResponseStream({
@@ -26,6 +27,7 @@ export function MarkdownResponseStream({
   speed = 80,
   onStreamStart,
   onStreamComplete,
+  onReply,
 }: MarkdownResponseStreamProps) {
   const [displayedText, setDisplayedText] = useState("");
   const [diagrams, setDiagrams] = useState<{ id: string; chart: string; placeholder: string }[]>([]);
@@ -123,10 +125,23 @@ export function MarkdownResponseStream({
 
               // Default code rendering (no mermaid handling here)
               return (
-                <code className={className} {...props}>
+                <code {...props}>
                   {children}
                 </code>
               );
+            },
+            blockquote: ({ node, ...props }) => (
+              <div className="bg-gray-50 dark:bg-gray-900 border-l-4 border-gray-300 dark:border-gray-700 p-3 rounded-md my-3">
+                <blockquote {...props} />
+              </div>
+            ),
+            strong: ({ node, ...props }) => {
+              // Check if this is part of a reply header
+              const text = props.children?.toString() || "";
+              if (text.startsWith("Replying to ")) {
+                return <strong {...props} />;
+              }
+              return <strong {...props} />;
             }
           }}
         >
@@ -161,10 +176,23 @@ export function MarkdownResponseStream({
                 code({ node, inline, className, children, ...props }) {
                   // Default code rendering (no mermaid handling here)
                   return (
-                    <code className={className} {...props}>
+                    <code {...props}>
                       {children}
                     </code>
                   );
+                },
+                blockquote: ({ node, ...props }) => (
+                  <div className="bg-gray-50 dark:bg-gray-900 border-l-4 border-gray-300 dark:border-gray-700 p-3 rounded-md my-3">
+                    <blockquote {...props} />
+                  </div>
+                ),
+                strong: ({ node, ...props }) => {
+                  // Check if this is part of a reply header
+                  const text = props.children?.toString() || "";
+                  if (text.startsWith("Replying to ")) {
+                    return <strong {...props} />;
+                  }
+                  return <strong {...props} />;
                 }
               }}
             >
@@ -182,7 +210,18 @@ export function MarkdownResponseStream({
         {renderTextWithDiagrams()}
       </div>
       {isComplete && (
-        <div className="flex justify-end mt-4">
+        <div className="flex justify-end mt-4 space-x-2">
+          {onReply && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex items-center gap-2"
+              onClick={onReply}
+            >
+              <MessageSquare className="h-4 w-4" />
+              <span>Reply</span>
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"

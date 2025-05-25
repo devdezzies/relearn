@@ -50,6 +50,7 @@ export default function ChatInterface() {
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
   const [isTitleUpdated, setIsTitleUpdated] = useState(false);
   const [isResponseStreaming, setIsResponseStreaming] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -148,6 +149,9 @@ export default function ChatInterface() {
     // Don't load messages if a response is currently streaming
     if (isResponseStreaming || isGeneratingVideo) return;
 
+    // Clear any active reply
+    setReplyingTo(null);
+
     try {
       setIsLoading(true);
       const messagesData = await getMessages(conversationId);
@@ -177,9 +181,21 @@ export default function ChatInterface() {
 
     if (!input.trim() || isResponseStreaming || isLoading || isGeneratingVideo) return;
 
+    // Prepare the message content, including reply information if applicable
+    let messageContent = input;
+    if (replyingTo) {
+      // Format the reply with proper markdown for better visual distinction
+      const replyPreview = replyingTo.content.length > 100 
+        ? replyingTo.content.substring(0, 100) + "..." 
+        : replyingTo.content;
+
+      // Use a more visually distinct format for replies
+      messageContent = `> **Replying to ${replyingTo.role === "assistant" ? "AI" : "yourself"}:**\n> ${replyPreview.replace(/\n/g, '\n> ')}\n\n${input}`;
+    }
+
     const userMessage: Message = { 
       role: "user", 
-      content: input,
+      content: messageContent,
       timestamp: new Date(),
       isNew: true // This is a new message
     };
@@ -187,6 +203,7 @@ export default function ChatInterface() {
     // Add message to local state immediately for UI responsiveness
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
+    setReplyingTo(null); // Clear the reply when a message is sent
     setIsLoading(true);
 
     try {
@@ -200,7 +217,7 @@ export default function ChatInterface() {
         // This is more efficient than creating a conversation and then adding a message separately
         const newConversation = await createConversation(newTitle, {
           role: "user",
-          content: input
+          content: messageContent // Use the message content that includes reply information
         });
 
         setCurrentConversationId(newConversation.conversation_id);
@@ -215,7 +232,7 @@ export default function ChatInterface() {
         await addMessage(
           currentConversationId,
           "user",
-          input
+          messageContent // Use the message content that includes reply information
         );
       }
 
@@ -230,7 +247,7 @@ export default function ChatInterface() {
         // Add the current user message
         apiMessages.push({
           role: "user",
-          content: input
+          content: messageContent // Use the message content that includes reply information
         });
 
         // Generate AI response using the OpenAI client
@@ -285,6 +302,7 @@ export default function ChatInterface() {
     };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
+    setReplyingTo(null); // Clear the reply when generating a video
     setIsGeneratingVideo(true);
 
     try {
@@ -415,6 +433,9 @@ export default function ChatInterface() {
   const startNewChat = async () => {
     // Don't start a new chat if a response is currently streaming
     if (isResponseStreaming || isLoading || isGeneratingVideo) return;
+
+    // Clear any active reply
+    setReplyingTo(null);
 
     try {
       // Create a new empty conversation without any initial message
@@ -644,6 +665,10 @@ export default function ChatInterface() {
                               speed={80}
                               onStreamStart={() => setIsResponseStreaming(true)}
                               onStreamComplete={() => setIsResponseStreaming(false)}
+                              onReply={() => {
+                                setReplyingTo(message);
+                                inputRef.current?.focus();
+                              }}
                             />
                           ) : (
                             // For existing messages, use MarkdownResponseStream with the full content
@@ -652,11 +677,51 @@ export default function ChatInterface() {
                               textStream={message.content} 
                               mode="fade" 
                               speed={0} // Speed 0 means instant rendering for existing messages
+                              onReply={() => {
+                                setReplyingTo(message);
+                                inputRef.current?.focus();
+                              }}
                             />
                           )}
                         </div>
                       ) : (
-                        message.content
+                        <div className="w-full min-w-full">
+                          <ReactMarkdown 
+                            remarkPlugins={[remarkGfm, remarkMath]}
+                            rehypePlugins={[rehypeKatex, rehypeRaw]}
+                            components={{
+                              blockquote: ({ node, ...props }) => (
+                                <div className="bg-gray-50 dark:bg-gray-900 border-l-4 border-gray-300 dark:border-gray-700 p-3 rounded-md my-3">
+                                  <blockquote {...props} />
+                                </div>
+                              ),
+                              strong: ({ node, ...props }) => {
+                                // Check if this is part of a reply header
+                                const text = props.children?.toString() || "";
+                                if (text.startsWith("Replying to ")) {
+                                  return <strong {...props} />;
+                                }
+                                return <strong {...props} />;
+                              }
+                            }}
+                          >
+                            {message.content}
+                          </ReactMarkdown>
+                          <div className="flex justify-end mt-2">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="flex items-center gap-2"
+                              onClick={() => {
+                                setReplyingTo(message);
+                                inputRef.current?.focus();
+                              }}
+                            >
+                              <MessageSquare className="h-3 w-3" />
+                              <span className="text-xs">Reply</span>
+                            </Button>
+                          </div>
+                        </div>
                       )}
                     </div>
                     {message.videoUrl && (
@@ -732,6 +797,28 @@ export default function ChatInterface() {
         {/* Input area */}
         <div className="sticky bottom-0 p-5 bg-white dark:bg-black border-t border-gray-100 dark:border-gray-900">
           <div className="max-w-4xl mx-auto">
+            {replyingTo && (
+              <div className="mb-2 p-2 border border-gray-200 dark:border-gray-800 rounded-lg bg-gray-50 dark:bg-gray-900 flex justify-between items-start">
+                <div className="flex flex-col">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    Replying to {replyingTo.role === "assistant" ? "AI" : "yourself"}
+                  </div>
+                  <div className="text-sm text-gray-700 dark:text-gray-300 line-clamp-2">
+                    {replyingTo.content.length > 100 
+                      ? replyingTo.content.substring(0, 100) + "..." 
+                      : replyingTo.content}
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setReplyingTo(null)} 
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="w-full relative">
               <Input
                 ref={inputRef}
