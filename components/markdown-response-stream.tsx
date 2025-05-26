@@ -11,6 +11,9 @@ import { MermaidDiagram } from "./mermaid-diagram";
 import { extractMermaidDiagrams, ParallelMermaidDiagram } from "./parallel-mermaid-diagram";
 import { Button } from "./ui/button";
 import { Download, MessageSquare } from "lucide-react";
+import { MathPlot } from "./math-plot";
+import { VisualizationRenderer } from "./visualization-renderer";
+import { VisualizationError } from "./visualization-error";
 
 interface MarkdownResponseStreamProps {
   textStream: string;
@@ -19,6 +22,30 @@ interface MarkdownResponseStreamProps {
   onStreamStart?: () => void;
   onStreamComplete?: () => void;
   onReply?: () => void;
+}
+
+// Add a new function to extract plot configurations
+function extractPlotConfigs(content: string): { cleanContent: string; plots: any[] } {
+  const plots: any[] = [];
+  
+  // Regular expression to match plot configurations
+  // Format: ```plot{...}
+  const plotRegex = /```plot(\{[\s\S]*?\})\s*```/g;
+  
+  // Replace each plot configuration with a placeholder
+  const cleanContent = content.replace(plotRegex, (match, config) => {
+    try {
+      const plotConfig = JSON.parse(config);
+      const id = `plot-${Math.random().toString(36).substring(2, 11)}`;
+      plots.push({ id, ...plotConfig });
+      return `[PLOT:${id}]`;
+    } catch (error) {
+      console.error('Error parsing plot configuration:', error);
+      return match;
+    }
+  });
+  
+  return { cleanContent, plots };
 }
 
 export function MarkdownResponseStream({
@@ -31,6 +58,7 @@ export function MarkdownResponseStream({
 }: MarkdownResponseStreamProps) {
   const [displayedText, setDisplayedText] = useState("");
   const [diagrams, setDiagrams] = useState<{ id: string; chart: string; placeholder: string }[]>([]);
+  const [plots, setPlots] = useState<any[]>([]);
   const contentRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
 
@@ -99,113 +127,83 @@ export function MarkdownResponseStream({
     }
   };
 
-  // Extract diagrams and update the displayed text as it streams
+  // Extract diagrams and plots and update the displayed text as it streams
   useEffect(() => {
-    // Extract mermaid diagrams from the text
+    // Extract mermaid diagrams
     const { cleanContent: contentWithoutDiagrams, diagrams: extractedDiagrams } = extractMermaidDiagrams(currentText);
 
-    // Update diagrams state
-    setDiagrams(extractedDiagrams);
+    // Extract plot configurations
+    const { cleanContent: finalContent, plots: extractedPlots } = extractPlotConfigs(contentWithoutDiagrams);
 
-    // Update displayed text
-    setDisplayedText(contentWithoutDiagrams);
+    // Update states
+    setDiagrams(extractedDiagrams);
+    setPlots(extractedPlots);
+    setDisplayedText(finalContent);
   }, [currentText]);
 
-  // Function to render text with diagram placeholders replaced by actual diagrams
-  const renderTextWithDiagrams = () => {
-    // If no diagrams, just return the text
-    if (diagrams.length === 0) {
-      return (
-        <ReactMarkdown 
-          remarkPlugins={[remarkGfm, remarkMath]}
-          rehypePlugins={[rehypeKatex, rehypeRaw]}
-          components={{
-            code({ node, className, children, ...props }) {
-              // Default code rendering (no mermaid handling here)
-              return (
-                <code {...props}>
-                  {children}
-                </code>
-              );
-            },
-            blockquote: ({ node, ...props }) => (
-              <div className="bg-gray-50 dark:bg-gray-900 border-l-4 border-gray-300 dark:border-gray-700 p-3 rounded-md my-3">
-                <blockquote {...props} />
-              </div>
-            ),
-            strong: ({ node, ...props }) => {
-              // Check if this is part of a reply header
-              const text = props.children?.toString() || "";
-              if (text.startsWith("Replying to ")) {
-                return <strong {...props} />;
+  // Function to render text with diagrams and plots
+  const renderTextWithDiagramsAndPlots = () => {
+    return (
+      <ReactMarkdown 
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex, rehypeRaw]}
+        components={{
+          code({ node, className, children, ...props }) {
+            const match = /language-(\w+)/.exec(className || '');
+            const isInline = !('data-sourcepos' in props);
+            
+            if (!isInline && match) {
+              const language = match[1];
+              const content = String(children).replace(/\n$/, '');
+              
+              if (language === 'plot') {
+                try {
+                  return (
+                    <div className="my-4">
+                      <MathPlot {...JSON.parse(content)} />
+                    </div>
+                  );
+                } catch (error) {
+                  console.error('Error rendering plot:', error);
+                  return <VisualizationError type="plot" />;
+                }
               }
+              
+              if (language === 'mermaid') {
+                return <MermaidDiagram chart={content} />;
+              }
+            }
+            
+            return (
+              <code className={className} {...props}>
+                {children}
+              </code>
+            );
+          },
+          blockquote: ({ node, ...props }) => (
+            <div className="bg-gray-50 dark:bg-gray-900 border-l-4 border-gray-300 dark:border-gray-700 p-3 rounded-md my-3">
+              <blockquote {...props} />
+            </div>
+          ),
+          strong: ({ node, ...props }) => {
+            // Check if this is part of a reply header
+            const text = props.children?.toString() || "";
+            if (text.startsWith("Replying to ")) {
               return <strong {...props} />;
             }
-          }}
-        >
-          {displayedText}
-        </ReactMarkdown>
-      );
-    }
-
-    // Split content by diagram placeholders
-    const parts = displayedText.split(/(\[DIAGRAM:[a-z0-9-]+\])/);
-
-    return (
-      <>
-        {parts.map((part, index) => {
-          // Check if this part is a diagram placeholder
-          const match = part.match(/\[DIAGRAM:([a-z0-9-]+)\]/);
-          if (match) {
-            const diagramId = match[1];
-            const diagram = diagrams.find(d => d.id === diagramId);
-            if (diagram) {
-              return <ParallelMermaidDiagram key={diagramId} id={diagramId} chart={diagram.chart} />;
-            }
+            return <strong {...props} />;
           }
-
-          // Regular text part - render with ReactMarkdown
-          return (
-            <ReactMarkdown 
-              key={index}
-              remarkPlugins={[remarkGfm, remarkMath]}
-              rehypePlugins={[rehypeKatex, rehypeRaw]}
-              components={{
-                code({ node, className, children, ...props }) {
-                  // Default code rendering (no mermaid handling here)
-                  return (
-                    <code className={className} {...props}>
-                      {children}
-                    </code>
-                  );
-                },
-                blockquote: ({ node, ...props }) => (
-                  <div className="bg-gray-50 dark:bg-gray-900 border-l-4 border-gray-300 dark:border-gray-700 p-3 rounded-md my-3">
-                    <blockquote {...props} />
-                  </div>
-                ),
-                strong: ({ node, ...props }) => {
-                  // Check if this is part of a reply header
-                  const text = props.children?.toString() || "";
-                  if (text.startsWith("Replying to ")) {
-                    return <strong {...props} />;
-                  }
-                  return <strong {...props} />;
-                }
-              }}
-            >
-              {part}
-            </ReactMarkdown>
-          );
-        })}
-      </>
+        }}
+      >
+        {displayedText}
+      </ReactMarkdown>
     );
   };
 
   return (
     <div className="w-full min-w-full">
       <div ref={contentRef} className="markdown-content">
-        {renderTextWithDiagrams()}
+        {renderTextWithDiagramsAndPlots()}
       </div>
       {isComplete && (
         <div className="flex justify-end mt-4 space-x-2">
