@@ -28,6 +28,8 @@ import rehypeRaw from "rehype-raw";
 import { MarkdownResponseStream } from "./markdown-response-stream";
 import { MermaidDiagram } from "./mermaid-diagram";
 import { MessageSuggestions } from "./chat/message-suggestions";
+import { ChatSidebar } from "./chat/sidebar";
+import { RelatedQuestions } from "./chat/related-questions";
 
 type Message = {
   role: "user" | "assistant";
@@ -37,6 +39,7 @@ type Message = {
   message_id?: string;
   conversation_id?: string;
   isNew?: boolean; // Flag to indicate if this is a new message that should use typewriter effect
+  relatedQuestions?: string[]; // Add related questions field
 };
 
 
@@ -291,7 +294,8 @@ export default function ChatInterface({ initialConversationId }: { initialConver
           role: "assistant",
           content: aiResponse || "",
           timestamp: new Date(),
-          isNew: true // This is a new message that should use typewriter effect
+          isNew: true,
+          relatedQuestions: await generateRelatedQuestions(aiResponse || "")
         };
         setMessages(prev => [...prev, aiMessage]);
         setIsLoading(false);
@@ -401,7 +405,8 @@ export default function ChatInterface({ initialConversationId }: { initialConver
           content: finalResponse,
           timestamp: new Date(),
           videoUrl,
-          isNew: true // This is a new message that should use typewriter effect
+          isNew: true,
+          relatedQuestions: await generateRelatedQuestions(finalResponse)
         };
         setMessages(prev => [...prev, aiMessage]);
         setIsGeneratingVideo(false);
@@ -573,108 +578,58 @@ export default function ChatInterface({ initialConversationId }: { initialConver
     inputRef.current?.focus();
   };
 
+  const generateRelatedQuestions = async (message: string): Promise<string[]> => {
+    try {
+      // Create a prompt for generating related questions
+      const prompt = [
+        {
+          role: "system",
+          content: "You are a helpful AI that generates 3 concise, relevant follow-up questions based on the previous response. The questions should be clear, specific, and encourage deeper exploration of the topic. Each question should be no longer than 10 words."
+        },
+        {
+          role: "user",
+          content: `Generate 3 concise follow-up questions based on this response: "${message}"`
+        }
+      ];
+
+      // Get questions from OpenAI
+      const response = await generateChatCompletion(prompt);
+      
+      // Split the response into individual questions and clean them up
+      const questions = response
+        ?.split(/\d\.|\n/)
+        .map(q => q.trim())
+        .filter(q => q.length > 0 && q.endsWith('?'))
+        .slice(0, 3) || [];
+
+      return questions;
+    } catch (error) {
+      console.error("Error generating related questions:", error);
+      return [];
+    }
+  };
+
   return (
     <div className="flex h-full w-full bg-white dark:bg-black">
-      {/* Sidebar - Minimalist style */}
-      <div className={`${isSidebarOpen ? 'w-64' : 'w-0'} bg-white dark:bg-gray-950 text-black dark:text-white transition-all duration-300 flex flex-col h-full overflow-hidden border-r border-gray-100 dark:border-gray-900`}>
-        <div className="p-4 flex items-center justify-between">
-          <button 
-            onClick={() => {
-              if (isResponseStreaming) {
-                alert("Cannot start a new chat while a response is being generated. Please wait for the current response to complete.");
-              } else if (conversations.length > 0 && conversations[0].conversation_id === currentConversationId && messages.length === 0) {
-                setAlertTitle("Conversation Empty");
-                setAlertMessage("Please add a message to the current conversation first before creating a new chat.");
-                setIsAlertOpen(true);
-              } else {
-                startNewChat();
-              }
-            }}
-            className={`flex items-center gap-2 text-sm font-medium ${!isResponseStreaming ? 'hover:bg-gray-100 dark:hover:bg-gray-900' : 'opacity-50 cursor-not-allowed'} rounded-md py-2 px-3 w-full transition-colors`}
-            disabled={isResponseStreaming}
-          >
-            <Plus size={16} />
-            New chat
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-3">
-          {isLoadingConversations ? (
-            <div className="flex justify-center items-center py-4">
-              <Loader2 className="h-4 w-4 animate-spin text-gray-500 dark:text-gray-400" />
-            </div>
-          ) : conversations.length > 0 ? (
-            <>
-              <div className="text-xs text-gray-500 dark:text-gray-400 font-medium px-2 py-2 mb-1">
-                Your conversations
-              </div>
-              {conversations.map((conversation) => (
-                <div 
-                  key={conversation.conversation_id}
-                  className={`flex items-center justify-between text-sm w-full rounded-md py-2 px-3 transition-colors ${
-                    conversation.conversation_id === currentConversationId 
-                      ? 'bg-gray-100 dark:bg-gray-800' 
-                      : 'hover:bg-gray-100 dark:hover:bg-gray-900'
-                  }`}
-                >
-                  <button 
-                    onClick={() => {
-                      if (isResponseStreaming) {
-                        alert("Cannot switch conversations while a response is being generated. Please wait for the current response to complete.");
-                      } else if (conversation.conversation_id !== currentConversationId) {
-                        loadMessages(conversation.conversation_id);
-                        setChatTitle(conversation.title);
-                        setIsTitleUpdated(false); // Reset flag when switching conversations
-                      }
-                    }}
-                    className={`flex items-center gap-2 flex-1 text-left ${isResponseStreaming ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    disabled={isResponseStreaming}
-                  >
-                    <MessageSquare size={16} />
-                    <span className="truncate">{conversation.title.length > 15 ? conversation.title.substring(0, 15) + '...' : conversation.title}</span>
-                  </button>
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (isResponseStreaming) {
-                        alert("Cannot delete conversation while a response is being generated. Please wait for the current response to complete.");
-                      } else {
-                        handleDeleteConversation(conversation.conversation_id);
-                      }
-                    }}
-                    className={`p-1 rounded-md ${!isResponseStreaming ? 'hover:bg-gray-200 dark:hover:bg-gray-700' : 'opacity-50 cursor-not-allowed'} transition-colors`}
-                    aria-label="Delete conversation"
-                    disabled={isResponseStreaming}
-                  >
-                    <Trash2 size={14} className="text-gray-500 dark:text-gray-400" />
-                  </button>
-                </div>
-              ))}
-            </>
-          ) : (
-            <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-              No conversations yet
-            </div>
-          )}
-        </div>
-
-        <div className="p-4 border-t border-gray-100 dark:border-gray-900">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm text-gray-500 dark:text-gray-400">Theme</span>
-            <ThemeSwitcher />
-          </div>
-          <form action={signOutAction}>
-            <Button 
-              type="submit"
-              variant="ghost" 
-              className="flex items-center gap-2 text-sm w-full hover:bg-gray-100 dark:hover:bg-gray-900 justify-start px-3"
-            >
-              <ExternalLink size={16} />
-              Sign out
-            </Button>
-          </form>
-        </div>
-      </div>
+      {/* Sidebar with date categorization */}
+      <ChatSidebar
+        conversations={conversations}
+        currentConversationId={currentConversationId}
+        isLoadingConversations={isLoadingConversations}
+        isResponseStreaming={isResponseStreaming}
+        onStartNewChat={startNewChat}
+        onSelectConversation={(id) => {
+          loadMessages(id);
+          const conversation = conversations.find(c => c.conversation_id === id);
+          if (conversation) {
+            setChatTitle(conversation.title);
+            setIsTitleUpdated(false);
+          }
+        }}
+        onDeleteConversation={handleDeleteConversation}
+        isSidebarOpen={isSidebarOpen}
+        messages={messages}
+      />
 
       {/* Main chat area */}
       <div className="flex flex-col flex-1 h-full">
@@ -777,6 +732,16 @@ export default function ChatInterface({ initialConversationId }: { initialConver
                                 setReplyingTo(message);
                                 inputRef.current?.focus();
                               }}
+                            />
+                          )}
+                          {message.relatedQuestions && (
+                            <RelatedQuestions
+                              questions={message.relatedQuestions}
+                              onQuestionClick={(question) => {
+                                setInput(question);
+                                inputRef.current?.focus();
+                              }}
+                              isResponseComplete={!isResponseStreaming}
                             />
                           )}
                         </div>
