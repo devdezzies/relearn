@@ -37,7 +37,8 @@ export async function createConversation(title: string, initialMessage?: { role:
     .from("conversations")
     .insert({
       user_id: user.id,
-      title: title
+      title: title,
+      created_at: new Date().toISOString()
     })
     .select()
     .single();

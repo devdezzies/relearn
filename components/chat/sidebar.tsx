@@ -39,7 +39,7 @@ export function ChatSidebar({
     return conversationList.map((conversation) => (
       <div 
         key={conversation.conversation_id}
-        className={`flex items-center justify-between text-sm w-full rounded-md py-2 px-3 transition-colors ${
+        className={`group flex items-center justify-between text-sm w-full rounded-md py-2 px-3 transition-colors ${
           conversation.conversation_id === currentConversationId 
             ? 'bg-gray-100 dark:bg-gray-800' 
             : 'hover:bg-gray-100 dark:hover:bg-gray-900'
@@ -68,7 +68,7 @@ export function ChatSidebar({
               onDeleteConversation(conversation.conversation_id);
             }
           }}
-          className={`p-1 rounded-md ${!isResponseStreaming ? 'hover:bg-gray-200 dark:hover:bg-gray-700' : 'opacity-50 cursor-not-allowed'} transition-colors`}
+          className={`p-1 rounded-md opacity-0 group-hover:opacity-100 ${!isResponseStreaming ? 'hover:bg-gray-200 dark:hover:bg-gray-700' : 'opacity-50 cursor-not-allowed'} transition-colors`}
           aria-label="Delete conversation"
           disabled={isResponseStreaming}
         >
