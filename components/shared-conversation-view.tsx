@@ -69,20 +69,20 @@ export default function SharedConversationView({
             formattedMessages.map((message, index) => (
               <div
                 key={index}
-                className="flex w-full py-8"
+                className="flex w-full py-6"
               >
-                <div className="flex w-full max-w-4xl mx-auto px-6 items-start gap-5">
+                <div className="flex w-full max-w-4xl mx-auto px-4 items-start gap-4">
                   {message.role === "assistant" ? (
-                    <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
-                      <Bot className="h-4 w-4 text-gray-700 dark:text-gray-300" />
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center text-base">
+                      🤖
                     </div>
                   ) : (
-                    <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
-                      <User className="h-4 w-4 text-gray-700 dark:text-gray-300" />
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center text-base">
+                      🧑
                     </div>
                   )}
 
-                  <div className="flex flex-col flex-1">
+                  <div className="flex flex-col flex-1 min-w-0">
                     {message.videoUrl && (
                       <div className="mb-4">
                         <video 

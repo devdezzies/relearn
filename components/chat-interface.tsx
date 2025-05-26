@@ -27,6 +27,7 @@ import rehypeKatex from "rehype-katex";
 import rehypeRaw from "rehype-raw";
 import { MarkdownResponseStream } from "./markdown-response-stream";
 import { MermaidDiagram } from "./mermaid-diagram";
+import { MessageSuggestions } from "./chat/message-suggestions";
 
 type Message = {
   role: "user" | "assistant";
@@ -567,6 +568,11 @@ export default function ChatInterface({ initialConversationId }: { initialConver
     return title;
   };
 
+  const handleSuggestionClick = (suggestion: string) => {
+    setInput(suggestion);
+    inputRef.current?.focus();
+  };
+
   return (
     <div className="flex h-full w-full bg-white dark:bg-black">
       {/* Sidebar - Minimalist style */}
@@ -720,20 +726,20 @@ export default function ChatInterface({ initialConversationId }: { initialConver
             messages.map((message, index) => (
               <div
                 key={index}
-                className="flex w-full py-8"
+                className="flex w-full py-6"
               >
-                <div className="flex w-full max-w-4xl mx-auto px-6 items-start gap-5">
+                <div className="flex w-full max-w-4xl mx-auto px-4 items-start gap-4">
                   {message.role === "assistant" ? (
-                    <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
-                      <Bot className="h-4 w-4 text-gray-700 dark:text-gray-300" />
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center text-base">
+                      🤖
                     </div>
                   ) : (
-                    <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
-                      <User className="h-4 w-4 text-gray-700 dark:text-gray-300" />
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center text-base">
+                      🧑
                     </div>
                   )}
 
-                  <div className="flex flex-col flex-1">
+                  <div className="flex flex-col flex-1 min-w-0">
                     {message.videoUrl && (
                       <div className="mb-4">
                         <video 
@@ -819,23 +825,34 @@ export default function ChatInterface({ initialConversationId }: { initialConver
               </div>
             ))
           ) : !isLoading && !isGeneratingVideo ? (
-            <div className="flex flex-col items-center justify-center h-full text-center p-8">
-              <Bot className="h-16 w-16 text-gray-300 dark:text-gray-700 mb-4" />
+            <div className="flex flex-col items-center justify-start h-full text-center p-8 pt-16">
+              <Bot className="h-16 w-16 text-gray-300 dark:text-gray-700 mb-6" />
+              <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                Welcome to Relearn AI
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
+                Choose a suggestion below or start a new conversation
+              </p>
+              
+              <MessageSuggestions onSuggestionClick={handleSuggestionClick} />
+
               {!currentConversationId && (
-                <Button 
-                  onClick={() => {
-                    if (isResponseStreaming) {
-                      alert("Cannot start a new conversation while a response is being generated. Please wait for the current response to complete.");
-                    } else {
-                      startNewChat();
-                    }
-                  }} 
-                  className={`flex items-center gap-2 ${isResponseStreaming ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  disabled={isResponseStreaming}
-                >
-                  <Plus size={16} />
-                  New conversation
-                </Button>
+                <div className="mt-8">
+                  <Button 
+                    onClick={() => {
+                      if (isResponseStreaming) {
+                        alert("Cannot start a new conversation while a response is being generated. Please wait for the current response to complete.");
+                      } else {
+                        startNewChat();
+                      }
+                    }} 
+                    className={`flex items-center gap-2 ${isResponseStreaming ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    disabled={isResponseStreaming}
+                  >
+                    <Plus size={16} />
+                    New conversation
+                  </Button>
+                </div>
               )}
             </div>
           ) : null}
