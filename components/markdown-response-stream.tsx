@@ -120,9 +120,7 @@ export function MarkdownResponseStream({
           remarkPlugins={[remarkGfm, remarkMath]}
           rehypePlugins={[rehypeKatex, rehypeRaw]}
           components={{
-            code({ node, inline, className, children, ...props }) {
-              const match = /language-(\w+)/.exec(className || '');
-
+            code({ node, className, children, ...props }) {
               // Default code rendering (no mermaid handling here)
               return (
                 <code {...props}>
@@ -173,10 +171,10 @@ export function MarkdownResponseStream({
               remarkPlugins={[remarkGfm, remarkMath]}
               rehypePlugins={[rehypeKatex, rehypeRaw]}
               components={{
-                code({ node, inline, className, children, ...props }) {
+                code({ node, className, children, ...props }) {
                   // Default code rendering (no mermaid handling here)
                   return (
-                    <code {...props}>
+                    <code className={className} {...props}>
                       {children}
                     </code>
                   );

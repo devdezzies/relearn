@@ -9,12 +9,15 @@ import rehypeKatex from "rehype-katex";
 import rehypeRaw from "rehype-raw";
 import { MermaidDiagram } from "./mermaid-diagram";
 import { type Message as MessageType } from "@/app/chat-actions";
+import { MarkdownResponseStream } from "./markdown-response-stream";
+import { ThemeSwitcher } from "./theme-switcher";
 
 type Message = {
   role: "user" | "assistant";
   content: string;
   timestamp?: Date;
   videoUrl?: string;
+  isNew?: boolean;
 };
 
 export default function SharedConversationView({ 
@@ -33,6 +36,7 @@ export default function SharedConversationView({
       content: msg.content,
       timestamp: new Date(msg.timestamp),
       videoUrl: msg.video_url,
+      isNew: false // These are existing messages, so they should not use the typewriter effect
     }));
 
     setFormattedMessages(formatted);
@@ -44,13 +48,16 @@ export default function SharedConversationView({
   };
 
   return (
-    <>
+    <div className="flex flex-col min-h-screen">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-white dark:bg-black border-b border-gray-100 dark:border-gray-900 p-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <h1 className="text-xl font-medium text-gray-800 dark:text-gray-200">{title}</h1>
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            Shared conversation
+          <div className="flex items-center gap-4">
+            <ThemeSwitcher />
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              Shared conversation
+            </div>
           </div>
         </div>
       </header>
@@ -62,9 +69,9 @@ export default function SharedConversationView({
             formattedMessages.map((message, index) => (
               <div
                 key={index}
-                className="flex w-full py-6 first:pt-0"
+                className="flex w-full py-8"
               >
-                <div className="flex w-full items-start gap-5 px-6">
+                <div className="flex w-full max-w-4xl mx-auto px-6 items-start gap-5">
                   {message.role === "assistant" ? (
                     <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
                       <Bot className="h-4 w-4 text-gray-700 dark:text-gray-300" />
@@ -76,38 +83,8 @@ export default function SharedConversationView({
                   )}
 
                   <div className="flex flex-col flex-1">
-                    <div className="prose prose-sm dark:prose-invert max-w-none">
-                      <ReactMarkdown 
-                        remarkPlugins={[remarkGfm, remarkMath]}
-                        rehypePlugins={[rehypeKatex, rehypeRaw]}
-                        components={{
-                          code({ node, inline, className, children, ...props }) {
-                            const match = /language-(\w+)/.exec(className || '');
-                            if (!inline && match && match[1] === 'mermaid') {
-                              return <MermaidDiagram chart={String(children).replace(/\n$/, '')} />;
-                            }
-                            return inline ? (
-                              <code className={className} {...props}>
-                                {children}
-                              </code>
-                            ) : (
-                              <pre className={className} {...props}>
-                                <code>{children}</code>
-                              </pre>
-                            );
-                          },
-                          blockquote: ({ node, ...props }) => (
-                            <div className="bg-gray-50 dark:bg-gray-900 border-l-4 border-gray-300 dark:border-gray-700 p-3 rounded-md my-3">
-                              <blockquote {...props} />
-                            </div>
-                          ),
-                        }}
-                      >
-                        {message.content}
-                      </ReactMarkdown>
-                    </div>
                     {message.videoUrl && (
-                      <div className="mt-4">
+                      <div className="mb-4">
                         <video 
                           controls 
                           className="rounded-lg w-full max-w-2xl"
@@ -117,6 +94,49 @@ export default function SharedConversationView({
                         </video>
                       </div>
                     )}
+                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                      {message.role === "assistant" ? (
+                        <div className="w-full min-w-full">
+                          <MarkdownResponseStream 
+                            textStream={message.content} 
+                            mode="fade" 
+                            speed={0} // Speed 0 for instant rendering in shared view
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-full min-w-full">
+                          <ReactMarkdown 
+                            remarkPlugins={[remarkGfm, remarkMath]}
+                            rehypePlugins={[rehypeKatex, rehypeRaw]}
+                            components={{
+                              code({ node, className, children, ...props }: any) {
+                                const match = /language-(\w+)/.exec(className || '');
+                                const isInline = !('data-sourcepos' in props);
+                                if (!isInline && match && match[1] === 'mermaid') {
+                                  return <MermaidDiagram chart={String(children).replace(/\n$/, '')} />;
+                                }
+                                return isInline ? (
+                                  <code className={className} {...props}>
+                                    {children}
+                                  </code>
+                                ) : (
+                                  <pre className={className}>
+                                    <code>{children}</code>
+                                  </pre>
+                                );
+                              },
+                              blockquote: ({ node, ...props }: any) => (
+                                <div className="bg-gray-50 dark:bg-gray-900 border-l-4 border-gray-300 dark:border-gray-700 p-3 rounded-md my-3">
+                                  <blockquote {...props} />
+                                </div>
+                              ),
+                            }}
+                          >
+                            {message.content}
+                          </ReactMarkdown>
+                        </div>
+                      )}
+                    </div>
                     <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                       {formatTime(message.timestamp)}
                     </div>
@@ -133,11 +153,11 @@ export default function SharedConversationView({
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-gray-100 dark:border-gray-900 p-4 bg-white dark:bg-black">
+      <footer className="border-t border-gray-100 dark:border-gray-900 p-4 bg-white dark:bg-black mt-auto">
         <div className="max-w-4xl mx-auto text-center text-sm text-gray-500 dark:text-gray-400">
           Powered by Relearn AI
         </div>
       </footer>
-    </>
+    </div>
   );
 }

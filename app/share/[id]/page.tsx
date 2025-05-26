@@ -2,6 +2,9 @@ import { getPublicMessages, getPublicConversation } from "@/app/chat-actions";
 import SharedConversationView from "@/components/shared-conversation-view";
 import { notFound } from "next/navigation";
 
+// This ensures the page doesn't use the root layout
+export const dynamic = 'force-dynamic';
+
 export default async function SharedConversationPage({ params }: { params: { id: string } }) {
   const conversationId = params.id;
   

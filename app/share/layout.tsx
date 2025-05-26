@@ -1,8 +1,12 @@
 import "@/app/globals.css";
-import { Inter } from "next/font/google";
+import { Geist } from "next/font/google";
 import { ThemeProvider } from "next-themes";
+import "katex/dist/katex.min.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const geist = Geist({
+  subsets: ["latin"],
+  display: "swap",
+});
 
 export const metadata = {
   title: "Shared Conversation | Relearn AI",
@@ -15,15 +19,17 @@ export default function SharedLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+    <html lang="en" className={geist.className} suppressHydrationWarning>
+      <body className="bg-background text-foreground">
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <div className="min-h-screen bg-white dark:bg-black">
+            {children}
+          </div>
         </ThemeProvider>
       </body>
     </html>

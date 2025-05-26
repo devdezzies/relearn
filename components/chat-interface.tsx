@@ -281,14 +281,14 @@ export default function ChatInterface({ initialConversationId }: { initialConver
           await addMessage(
             currentConversationId,
             "assistant",
-            aiResponse
+            aiResponse || ""
           );
         }
 
         // Add AI message to local state
         const aiMessage: Message = {
           role: "assistant",
-          content: aiResponse,
+          content: aiResponse || "",
           timestamp: new Date(),
           isNew: true // This is a new message that should use typewriter effect
         };
@@ -464,7 +464,7 @@ export default function ChatInterface({ initialConversationId }: { initialConver
 
     try {
       // Create a new empty conversation without any initial message
-      const newConversation = await createConversation("Relearn AI", null);
+      const newConversation = await createConversation("Relearn AI", undefined);
 
       setCurrentConversationId(newConversation.conversation_id);
 
@@ -707,7 +707,7 @@ export default function ChatInterface({ initialConversationId }: { initialConver
             )}
           </div>
           <div className="text-xs text-gray-500 dark:text-gray-400">
-            {isGeneratingVideo ? "Generating video..." : isLoading ? "Typing..." : isResponseStreaming ? "Responding..." : ""}
+            {isGeneratingVideo ? "🎥 Generating video..." : isLoading ? "Typing..." : isResponseStreaming ? "🧠 Responding..." : ""}
           </div>
         </div>
 
@@ -734,6 +734,17 @@ export default function ChatInterface({ initialConversationId }: { initialConver
                   )}
 
                   <div className="flex flex-col flex-1">
+                    {message.videoUrl && (
+                      <div className="mb-4">
+                        <video 
+                          controls 
+                          className="rounded-lg w-full max-w-2xl"
+                          src={message.videoUrl}
+                        >
+                          Your browser does not support the video tag.
+                        </video>
+                      </div>
+                    )}
                     <div className="prose prose-sm dark:prose-invert max-w-none">
                       {message.role === "assistant" ? (
                         <div className="w-full min-w-full">
@@ -803,18 +814,6 @@ export default function ChatInterface({ initialConversationId }: { initialConver
                         </div>
                       )}
                     </div>
-                    {message.videoUrl && (
-                      <div className="mt-4">
-                        <video 
-                          controls 
-                          className="rounded-lg w-full max-w-2xl"
-                          src={message.videoUrl}
-                        >
-                          Your browser does not support the video tag.
-                        </video>
-                      </div>
-                    )}
-
                   </div>
                 </div>
               </div>
