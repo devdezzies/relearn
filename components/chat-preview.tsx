@@ -21,7 +21,7 @@ export function ChatPreview() {
   ];
 
   return (
-    <div className="flex flex-col gap-4 p-6 bg-white rounded-2xl shadow-xl">
+    <div className="flex flex-col gap-4 p-6 bg-white rounded-2xl shadow-xl h-full">
       {/* Chat header with dots */}
       <div className="flex items-center gap-2 mb-4">
         <div className="w-3 h-3 rounded-full bg-gray-300" />
@@ -30,7 +30,7 @@ export function ChatPreview() {
       </div>
 
       {/* Messages */}
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 overflow-y-auto hide-scrollbar">
         {messages.map((message, index) => (
           <div 
             key={index} 
@@ -57,25 +57,22 @@ export function ChatPreview() {
         ))}
       </div>
 
-      {/* Animation preview placeholder */}
+      {/* Demo Video */}
       <div className="mt-4 relative rounded-xl overflow-hidden bg-gray-900 aspect-video">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-12 h-12 flex items-center justify-center text-white opacity-80">
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              className="w-full h-full"
-            >
-              <polygon points="5 3 19 12 5 21 5 3" />
-            </svg>
-          </div>
-        </div>
-        <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/50 to-transparent" />
+        <video 
+          className="w-full h-full object-cover"
+          autoPlay 
+          loop 
+          muted 
+          playsInline
+        >
+          <source 
+            src="https://tlxtnbjmkuwlafilbgfn.supabase.co/storage/v1/object/public/video//hello_world_PlotExceedsYRangeProblem_1748101319.mp4" 
+            type="video/mp4" 
+          />
+          Your browser does not support the video tag.
+        </video>
+        <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
       </div>
     </div>
   );
