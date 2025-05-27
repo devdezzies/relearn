@@ -8,6 +8,33 @@
 /* Mermaid diagram styles */
 .mermaid {
   @apply my-4 bg-white dark:bg-gray-900 p-4 rounded-lg overflow-auto max-w-full;
+  transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+}
+
+.mermaid svg {
+  @apply max-w-full;
+  transition: all 0.3s ease-in-out;
+}
+
+.mermaid.loading {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.mermaid.loaded {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Diagram loading animation */
+@keyframes diagram-pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 0.8; }
+  100% { opacity: 0.6; }
+}
+
+.diagram-loading {
+  animation: diagram-pulse 1.5s ease-in-out infinite;
 }
 
 @layer base {

@@ -7,7 +7,6 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import rehypeRaw from "rehype-raw";
-import { MermaidDiagram } from "./mermaid-diagram";
 import { extractMermaidDiagrams, ParallelMermaidDiagram } from "./parallel-mermaid-diagram";
 import { Button } from "./ui/button";
 import { Download, MessageSquare } from "lucide-react";
@@ -31,17 +30,25 @@ export function MarkdownResponseStream({
 }: MarkdownResponseStreamProps) {
   const [displayedText, setDisplayedText] = useState("");
   const [diagrams, setDiagrams] = useState<{ id: string; chart: string; placeholder: string }[]>([]);
+  const [renderedDiagrams, setRenderedDiagrams] = useState<Set<string>>(new Set());
   const contentRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isStreamComplete, setIsStreamComplete] = useState(false);
+  const diagramRenderQueue = useRef<string[]>([]);
+  const isProcessingQueue = useRef(false);
+  const rawText = useRef("");
 
   // Use the useTextStream hook to get the current text as it streams
   const { displayedText: currentText, isComplete } = useTextStream({
     textStream,
     speed,
     mode,
-    // We'll handle onComplete ourselves to ensure features are enabled immediately
-    // when the text is fully displayed
   });
+
+  // Store the raw text as it comes in
+  useEffect(() => {
+    rawText.current = currentText;
+  }, [currentText]);
 
   // Call onStreamStart when the component mounts
   useEffect(() => {
@@ -52,10 +59,55 @@ export function MarkdownResponseStream({
 
   // Call onStreamComplete when isComplete becomes true
   useEffect(() => {
-    if (isComplete && onStreamComplete) {
-      onStreamComplete();
+    if (isComplete) {
+      setIsStreamComplete(true);
+      if (onStreamComplete) {
+        onStreamComplete();
+      }
     }
   }, [isComplete, onStreamComplete]);
+
+  // Process diagram render queue
+  const processDiagramQueue = async () => {
+    if (isProcessingQueue.current || diagramRenderQueue.current.length === 0) return;
+    
+    isProcessingQueue.current = true;
+    
+    while (diagramRenderQueue.current.length > 0) {
+      const diagramId = diagramRenderQueue.current[0];
+      
+      // Add small delay between diagrams to prevent UI blocking
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      setRenderedDiagrams(prev => new Set([...Array.from(prev), diagramId]));
+      diagramRenderQueue.current.shift();
+    }
+    
+    isProcessingQueue.current = false;
+  };
+
+  // Extract diagrams and update the displayed text as it streams
+  useEffect(() => {
+    // During streaming, just show the raw text without processing diagrams
+    if (!isStreamComplete) {
+      setDisplayedText(currentText);
+      return;
+    }
+
+    // Only process diagrams after streaming is complete
+    const { cleanContent: contentWithoutDiagrams, diagrams: extractedDiagrams } = extractMermaidDiagrams(rawText.current);
+
+    // Update diagrams state
+    setDiagrams(extractedDiagrams);
+    setDisplayedText(contentWithoutDiagrams);
+    
+    // Queue all diagrams for rendering
+    if (extractedDiagrams.length > 0) {
+      const newDiagrams = extractedDiagrams.filter(d => !renderedDiagrams.has(d.id));
+      diagramRenderQueue.current.push(...newDiagrams.map(d => d.id));
+      processDiagramQueue();
+    }
+  }, [currentText, isStreamComplete]);
 
   // Function to handle downloading the message as an image
   const handleDownloadImage = async () => {
@@ -99,29 +151,16 @@ export function MarkdownResponseStream({
     }
   };
 
-  // Extract diagrams and update the displayed text as it streams
-  useEffect(() => {
-    // Extract mermaid diagrams from the text
-    const { cleanContent: contentWithoutDiagrams, diagrams: extractedDiagrams } = extractMermaidDiagrams(currentText);
-
-    // Update diagrams state
-    setDiagrams(extractedDiagrams);
-
-    // Update displayed text
-    setDisplayedText(contentWithoutDiagrams);
-  }, [currentText]);
-
   // Function to render text with diagram placeholders replaced by actual diagrams
   const renderTextWithDiagrams = () => {
-    // If no diagrams, just return the text
-    if (diagrams.length === 0) {
+    // During streaming, just render the raw text
+    if (!isStreamComplete) {
       return (
         <ReactMarkdown 
           remarkPlugins={[remarkGfm, remarkMath]}
           rehypePlugins={[rehypeKatex, rehypeRaw]}
           components={{
             code({ node, className, children, ...props }) {
-              // Default code rendering (no mermaid handling here)
               return (
                 <code {...props}>
                   {children}
@@ -134,7 +173,6 @@ export function MarkdownResponseStream({
               </div>
             ),
             strong: ({ node, ...props }) => {
-              // Check if this is part of a reply header
               const text = props.children?.toString() || "";
               if (text.startsWith("Replying to ")) {
                 return <strong {...props} />;
@@ -148,7 +186,7 @@ export function MarkdownResponseStream({
       );
     }
 
-    // Split content by diagram placeholders
+    // After streaming, handle diagrams
     const parts = displayedText.split(/(\[DIAGRAM:[a-z0-9-]+\])/);
 
     return (
@@ -160,7 +198,19 @@ export function MarkdownResponseStream({
             const diagramId = match[1];
             const diagram = diagrams.find(d => d.id === diagramId);
             if (diagram) {
-              return <ParallelMermaidDiagram key={diagramId} id={diagramId} chart={diagram.chart} />;
+              if (renderedDiagrams.has(diagramId)) {
+                return <ParallelMermaidDiagram key={diagramId} id={diagramId} chart={diagram.chart} />;
+              } else {
+                // Show placeholder while waiting to render
+                return (
+                  <div key={diagramId} className="my-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg text-center">
+                    <div className="animate-pulse flex flex-col items-center gap-2">
+                      <div className="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      <span className="text-sm text-gray-500 dark:text-gray-400">Preparing diagram...</span>
+                    </div>
+                  </div>
+                );
+              }
             }
           }
 
@@ -172,7 +222,6 @@ export function MarkdownResponseStream({
               rehypePlugins={[rehypeKatex, rehypeRaw]}
               components={{
                 code({ node, className, children, ...props }) {
-                  // Default code rendering (no mermaid handling here)
                   return (
                     <code className={className} {...props}>
                       {children}
@@ -185,7 +234,6 @@ export function MarkdownResponseStream({
                   </div>
                 ),
                 strong: ({ node, ...props }) => {
-                  // Check if this is part of a reply header
                   const text = props.children?.toString() || "";
                   if (text.startsWith("Replying to ")) {
                     return <strong {...props} />;
