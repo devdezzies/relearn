@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Button } from "./ui/button";
-import { Input } from "./ui/input";
+import { TextArea } from "./ui/input";
 import { User, Bot, Send, Menu, Plus, ExternalLink, MessageSquare, Video, Loader2, Trash2, Share2 } from "lucide-react";
 import { signOutAction } from "@/app/actions";
 import { ThemeSwitcher } from "./theme-switcher";
@@ -60,7 +60,7 @@ export default function ChatInterface({ initialConversationId }: { initialConver
   const [alertMessage, setAlertMessage] = useState("");
   const [alertTitle, setAlertTitle] = useState("Notice");
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -609,6 +609,25 @@ export default function ChatInterface({ initialConversationId }: { initialConver
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter') {
+      if (e.ctrlKey && e.shiftKey) {
+        // Ctrl+Shift+Enter for video generation
+        e.preventDefault();
+        if (!isGeneratingVideo && !isLoading && !isResponseStreaming && input.trim() && (currentConversationId || conversations.length === 0)) {
+          handleVideoGeneration();
+        }
+      } else if (e.ctrlKey) {
+        // Ctrl+Enter for text submission
+        e.preventDefault();
+        if (!isLoading && !isGeneratingVideo && !isResponseStreaming && input.trim() && (currentConversationId || conversations.length === 0)) {
+          handleSubmit(e as any);
+        }
+      }
+      // Regular Enter will be handled by the textarea for new lines
+    }
+  };
+
   return (
     <div className="flex h-full w-full bg-white dark:bg-black">
       {/* Sidebar with date categorization */}
@@ -790,15 +809,7 @@ export default function ChatInterface({ initialConversationId }: { initialConver
               </div>
             ))
           ) : !isLoading && !isGeneratingVideo ? (
-            <div className="flex flex-col items-center justify-start h-full text-center p-8 pt-16">
-              <Bot className="h-16 w-16 text-gray-300 dark:text-gray-700 mb-6" />
-              <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-                Welcome to Relearn AI
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
-                Choose a suggestion below or start a new conversation
-              </p>
-              
+            <div className="flex flex-col items-center justify-start h-full text-center p-8">
               <MessageSuggestions onSuggestionClick={handleSuggestionClick} />
 
               {!currentConversationId && (
@@ -855,10 +866,10 @@ export default function ChatInterface({ initialConversationId }: { initialConver
         </div>
 
         {/* Input area */}
-        <div className="sticky bottom-0 p-5 bg-white dark:bg-black border-t border-gray-100 dark:border-gray-900">
-          <div className="max-w-4xl mx-auto">
+        <div className="sticky bottom-0 bg-gradient-to-t from-white via-white to-white/80 dark:from-black dark:via-black dark:to-black/80 pt-4 pb-4">
+          <div className="max-w-4xl mx-auto px-4">
             {replyingTo && (
-              <div className="mb-2 p-2 border border-gray-200 dark:border-gray-800 rounded-lg bg-gray-50 dark:bg-gray-900 flex justify-between items-start">
+              <div className="mb-2 p-2 border border-gray-200 dark:border-gray-800 rounded-lg bg-gray-50/50 dark:bg-gray-900/50 backdrop-blur-sm flex justify-between items-start">
                 <div className="flex flex-col">
                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
                     Replying to {replyingTo.role === "assistant" ? "AI" : "yourself"}
@@ -879,48 +890,67 @@ export default function ChatInterface({ initialConversationId }: { initialConver
                 </button>
               </div>
             )}
-            <form onSubmit={handleSubmit} className="w-full relative">
-              <Input
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder={
-                  isGeneratingVideo 
-                    ? "Generating video..." 
-                    : isResponseStreaming
-                      ? "Wait for response to complete..."
-                    : !currentConversationId && conversations.length > 0
-                      ? "Select a conversation or start a new one..."
-                      : `Message ${chatTitle}...`
-                }
-                disabled={isLoading || isGeneratingVideo || isResponseStreaming || (!currentConversationId && conversations.length > 0)}
-                className="w-full py-5 px-4 pr-12 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 text-gray-800 dark:text-gray-200 focus:ring-1 focus:ring-gray-300 dark:focus:ring-gray-700"
-              />
-              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex gap-2">
-                <Button 
-                  type="button" 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleVideoGeneration();
+            <div className="relative">
+              <form onSubmit={(e) => e.preventDefault()} className="relative">
+                <TextArea
+                  ref={inputRef as any}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={
+                    isGeneratingVideo 
+                      ? "Generating video..." 
+                      : isResponseStreaming
+                        ? "Wait for response to complete..."
+                      : !currentConversationId && conversations.length > 0
+                        ? "Select a conversation or start a new one..."
+                        : `Message ${chatTitle}... (Ctrl+Enter to send, Enter for new line)`
+                  }
+                  disabled={isLoading || isGeneratingVideo || isResponseStreaming || (!currentConversationId && conversations.length > 0)}
+                  className="pr-24 pl-4"
+                  maxLength={2000}
+                  showCharCount={true}
+                  onHeightChange={(height) => {
+                    // Adjust the position of the buttons based on the textarea height
+                    const buttonsContainer = document.querySelector('.input-buttons');
+                    if (buttonsContainer) {
+                      const top = height / 2 - 8; // Adjust for better vertical alignment
+                      (buttonsContainer as HTMLElement).style.top = `${top}px`;
+                    }
                   }}
-                  disabled={isGeneratingVideo || isLoading || isResponseStreaming || !input.trim() || (!currentConversationId && conversations.length > 0)}
-                  className="p-1.5 rounded-lg"
-                  size="icon"
-                  variant="ghost"
-                >
-                  <Video className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                </Button>
-                <Button 
-                  type="submit" 
-                  disabled={isLoading || isGeneratingVideo || isResponseStreaming || !input.trim() || (!currentConversationId && conversations.length > 0)}
-                  className="p-1.5 rounded-lg"
-                  size="icon"
-                  variant="ghost"
-                >
-                  <Send className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                </Button>
-              </div>
-            </form>
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex gap-2 input-buttons">
+                  <Button 
+                    type="button" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleVideoGeneration();
+                    }}
+                    disabled={isGeneratingVideo || isLoading || isResponseStreaming || !input.trim() || (!currentConversationId && conversations.length > 0)}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
+                    size="icon"
+                    variant="ghost"
+                    title="Generate Video (Ctrl+Shift+Enter)"
+                  >
+                    <Video className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                  </Button>
+                  <Button 
+                    type="button" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleSubmit(e);
+                    }}
+                    disabled={isLoading || isGeneratingVideo || isResponseStreaming || !input.trim() || (!currentConversationId && conversations.length > 0)}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
+                    size="icon"
+                    variant="ghost"
+                    title="Send Message (Ctrl+Enter)"
+                  >
+                    <Send className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                  </Button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       </div>
