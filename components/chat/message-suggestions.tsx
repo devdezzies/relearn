@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "../ui/button";
-import { Sparkles, Video, BookOpen, Lightbulb } from "lucide-react";
 
 interface MessageSuggestionsProps {
   onSuggestionClick: (suggestion: string) => void;
@@ -9,60 +8,47 @@ interface MessageSuggestionsProps {
 
 const suggestions = [
   {
-    title: "Learn with Videos",
-    icon: Video,
-    prompts: [
-      "Generate a video explaining how neural networks work",
-      "Create a video about the basics of data structures",
-      "Show me a video explaining design patterns in programming"
-    ]
+    text: "Explain neural networks with a simple animation",
+    emoji: "🧠"
   },
   {
-    title: "Understand Concepts",
-    icon: Lightbulb,
-    prompts: [
-      "Explain how garbage collection works in modern programming languages",
-      "What are microservices and how do they work?",
-      "Help me understand the concept of dependency injection"
-    ]
+    text: "Show me how a quantum computer works",
+    emoji: "💫"
   },
   {
-    title: "Learning Paths",
-    icon: BookOpen,
-    prompts: [
-      "Create a structured learning path for cloud computing",
-      "What skills do I need to become a machine learning engineer?",
-      "Design a 3-month study plan for learning web development"
-    ]
+    text: "Create a visual guide to blockchain technology",
+    emoji: "⛓️"
+  },
+  {
+    text: "Visualize how machine learning makes predictions",
+    emoji: "🤖"
   }
 ];
 
 export function MessageSuggestions({ onSuggestionClick }: MessageSuggestionsProps) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto px-4 text-center">
-      {suggestions.map((category, index) => (
-        <div 
-          key={index}
-          className="flex flex-col gap-3 p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950"
-        >
-          <div className="flex items-center justify-center gap-2 text-sm font-medium text-gray-900 dark:text-gray-100">
-            <category.icon className="w-4 h-4" />
-            {category.title}
-          </div>
-          <div className="flex flex-col gap-2">
-            {category.prompts.map((prompt, promptIndex) => (
-              <Button
-                key={promptIndex}
-                variant="ghost"
-                className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 text-left h-auto whitespace-normal py-2"
-                onClick={() => onSuggestionClick(prompt)}
-              >
-                {prompt}
-              </Button>
-            ))}
-          </div>
+    <div className="flex-1 flex items-center justify-center py-8">
+      <div className="w-full max-w-lg mx-auto px-4">
+        <h1 className="text-3xl font-serif mb-6 text-center">Transform Complex Ideas Into Clear Visuals</h1>
+        <div className="w-full grid grid-cols-1 gap-2">
+          {suggestions.map((suggestion, index) => (
+            <Button
+              key={index}
+              variant="ghost"
+              className="w-full flex items-center gap-3 py-3 px-4 hover:bg-gray-50 dark:hover:bg-gray-900 rounded-lg text-left"
+              onClick={() => onSuggestionClick(suggestion.text)}
+            >
+              <span className="text-xl flex-shrink-0" role="img" aria-label="icon">
+                {suggestion.emoji}
+              </span>
+              <span className="text-base font-medium">
+                {suggestion.text}
+              </span>
+            </Button>
+          ))}
         </div>
-      ))}
+        <p className="text-xs text-gray-500 mt-4 text-center">Press Ctrl+Shift+Enter for video generation</p>
+      </div>
     </div>
   );
 } 
