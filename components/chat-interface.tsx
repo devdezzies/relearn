@@ -30,6 +30,7 @@ import { MermaidDiagram } from "./mermaid-diagram";
 import { MessageSuggestions } from "./chat/message-suggestions";
 import { ChatSidebar } from "./chat/sidebar";
 import { RelatedQuestions } from "./chat/related-questions";
+import { VideoPlayer } from "./ui/video-player";
 
 type Message = {
   role: "user" | "assistant";
@@ -716,13 +717,10 @@ export default function ChatInterface({ initialConversationId }: { initialConver
                   <div className="flex flex-col flex-1 min-w-0">
                     {message.videoUrl && (
                       <div className="mb-4">
-                        <video 
-                          controls 
-                          className="rounded-lg w-full max-w-2xl"
+                        <VideoPlayer 
                           src={message.videoUrl}
-                        >
-                          Your browser does not support the video tag.
-                        </video>
+                          className="w-full max-w-2xl"
+                        />
                       </div>
                     )}
                     <div className="prose prose-sm dark:prose-invert max-w-none">

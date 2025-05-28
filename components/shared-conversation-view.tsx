@@ -11,6 +11,7 @@ import { MermaidDiagram } from "./mermaid-diagram";
 import { type Message as MessageType } from "@/app/chat-actions";
 import { MarkdownResponseStream } from "./markdown-response-stream";
 import { ThemeSwitcher } from "./theme-switcher";
+import { VideoPlayer } from "./ui/video-player";
 
 type Message = {
   role: "user" | "assistant";
@@ -85,13 +86,10 @@ export default function SharedConversationView({
                   <div className="flex flex-col flex-1 min-w-0">
                     {message.videoUrl && (
                       <div className="mb-4">
-                        <video 
-                          controls 
-                          className="rounded-lg w-full max-w-2xl"
+                        <VideoPlayer 
                           src={message.videoUrl}
-                        >
-                          Your browser does not support the video tag.
-                        </video>
+                          className="w-full max-w-2xl"
+                        />
                       </div>
                     )}
                     <div className="prose prose-sm dark:prose-invert max-w-none">

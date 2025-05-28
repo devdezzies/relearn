@@ -4,21 +4,25 @@ import { DemoSection } from "@/components/demo-section";
 import { ChatPreview } from "@/components/chat-preview";
 import { FeaturesGrid } from "@/components/features-grid";
 import { LinkedinIcon, TwitterIcon, YoutubeIcon, InstagramIcon } from "lucide-react";
+import { PricingSection } from "@/components/pricing-section";
 
 export default function Home() {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <header className="flex justify-between items-center px-6 py-4">
-        <Link href="/" className="flex items-center gap-2">
-          <span className="text-2xl font-serif">ReLearn</span>
-        </Link>
-        <nav className="hidden md:flex items-center gap-8">
-          <Link href="#features" className="text-gray-600 hover:text-gray-900">Use cases</Link>
-          <Link href="#community" className="text-gray-600 hover:text-gray-900">Community</Link>
-          <Link href="#benchmarks" className="text-gray-600 hover:text-gray-900">Benchmarks</Link>
-          <Link href="#pricing" className="text-gray-600 hover:text-gray-900">Pricing</Link>
-        </nav>
+      <header className="flex items-center px-6 py-4">
+        <div className="flex items-center gap-8">
+          <Link href="/" className="flex items-center gap-2">
+            <span className="text-2xl font-serif">ReLearn</span>
+          </Link>
+          <nav className="hidden md:flex items-center gap-6">
+            <Link href="#use-cases" className="text-gray-600 hover:text-gray-900">Use cases</Link>
+            <Link href="#community" className="text-gray-600 hover:text-gray-900">Community</Link>
+            <Link href="#benchmarks" className="text-gray-600 hover:text-gray-900">Benchmarks</Link>
+            <Link href="#pricing" className="text-gray-600 hover:text-gray-900">Pricing</Link>
+          </nav>
+        </div>
+        <div className="flex-1"></div>
         <div className="flex items-center gap-4">
           <Link href="/auth/login">
             <Button variant="ghost" className="text-base">
@@ -37,12 +41,12 @@ export default function Home() {
       <main className="flex-1 flex flex-col items-center justify-center px-6 py-16">
         <div className="text-center max-w-4xl mx-auto space-y-8">
           <h1 className="text-6xl sm:text-7xl font-serif leading-tight">
-            Leave it to ReLearn
+            Empower Your Learning Journey
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            ReLearn is a general AI agent that bridges minds and actions: it doesn't just think,
-            it delivers results. ReLearn excels at various tasks in work and life, getting everything done
-            while you rest.
+            Your personal AI learning companion that adapts to your unique style. 
+            Master any subject, boost your confidence, and achieve academic excellence 
+            with personalized support available 24/7.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center pt-8">
             <Link href="/auth/signup">
@@ -70,10 +74,10 @@ export default function Home() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-serif mb-4">
-              Your digital life, unified.
+              Your AI-Powered Learning Companion
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Experience seamless integration and powerful features that transform the way you learn.
+              Experience personalized learning with our advanced AI features: smart tutoring, video lessons, adaptive quizzes, and long-term memory that grows with you.
             </p>
           </div>
           
@@ -123,72 +127,7 @@ export default function Home() {
       </section>
 
       {/* Pricing Section */}
-      <section id="pricing" className="py-24 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-serif mb-4">
-              Simple, transparent pricing
-            </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Start for free, upgrade when you need more features.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                title: "Free",
-                price: "$0",
-                description: "Perfect for getting started",
-                features: [
-                  "Basic visualizations",
-                  "5 learning sessions per day",
-                  "Community support"
-                ]
-              },
-              {
-                title: "Pro",
-                price: "$19",
-                description: "For serious learners",
-                features: [
-                  "Advanced visualizations",
-                  "Unlimited learning sessions",
-                  "Priority support",
-                  "Custom learning paths"
-                ]
-              },
-              {
-                title: "Team",
-                price: "$49",
-                description: "For teams and organizations",
-                features: [
-                  "Everything in Pro",
-                  "Team collaboration",
-                  "Admin dashboard",
-                  "Custom integrations"
-                ]
-              }
-            ].map((plan, index) => (
-              <div key={index} className="p-8 rounded-2xl bg-white shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                <h3 className="text-2xl font-medium mb-2">{plan.title}</h3>
-                <div className="text-4xl font-bold mb-4">{plan.price}<span className="text-lg font-normal text-gray-600">/mo</span></div>
-                <p className="text-gray-600 mb-6">{plan.description}</p>
-                <ul className="space-y-3 mb-8">
-                  {plan.features.map((feature, i) => (
-                    <li key={i} className="flex items-center gap-2">
-                      <span className="text-green-500">✓</span>
-                      <span className="text-gray-600">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Button className="w-full" variant={index === 1 ? "default" : "outline"}>
-                  Get started
-                </Button>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <PricingSection />
 
       {/* Footer */}
       <footer className="border-t py-16 bg-gray-50">
@@ -203,7 +142,7 @@ export default function Home() {
                 ReLearn, derived from the Latin word for "learn",
                 is a general AI agent that turns your thoughts into actions.
               </p>
-              <p className="text-sm text-gray-500">© 2024 ReLearn AI</p>
+              <p className="text-sm text-gray-500">© {new Date().getFullYear()} ReLearn AI</p>
             </div>
 
             {/* Community Links */}

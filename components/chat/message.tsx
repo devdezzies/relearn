@@ -8,6 +8,7 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import rehypeRaw from "rehype-raw";
 import { MarkdownResponseStream } from "../markdown-response-stream";
+import { VideoPlayer } from "../ui/video-player";
 
 export type Message = {
   role: "user" | "assistant";
@@ -101,13 +102,10 @@ export function ChatMessage({ message, onReply, isResponseStreaming }: MessagePr
           </div>
           {message.videoUrl && (
             <div className="mt-4">
-              <video 
-                controls 
-                className="rounded-lg w-full max-w-2xl"
+              <VideoPlayer 
                 src={message.videoUrl}
-              >
-                Your browser does not support the video tag.
-              </video>
+                className="w-full max-w-2xl"
+              />
             </div>
           )}
         </div>
