@@ -76,14 +76,6 @@ classDiagram
     Animal <|-- Cat
 \`\`\`
 
-Scientific Content Guidelines:
-1. When discussing scientific research, theories, or facts, provide footnotes with references
-2. Format footnotes as [^1], [^2], etc. in the text
-3. At the end of your response, include the footnotes with full citations: [^1]: Author, Title, Journal, Year
-4. Use SI units and proper scientific notation
-5. Clearly distinguish between established facts, theories, and speculative content
-6. Provide balanced perspectives on controversial scientific topics
-
 Remember that your primary goal is to foster understanding and curiosity about STEM subjects while providing well-structured, formatted responses with appropriate use of LaTeX, code formatting, diagrams, and scientific citations.`;
 
 // Function to generate a chat completion
