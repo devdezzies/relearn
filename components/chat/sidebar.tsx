@@ -1,12 +1,15 @@
 "use client";
 
-import { MessageSquare, Plus, Trash2, Loader2, ExternalLink } from "lucide-react";
+import { MessageSquare, Plus, Trash2, Loader2, ExternalLink, Bell, MessageCircle } from "lucide-react";
 import { Button } from "../ui/button";
 import { ThemeSwitcher } from "../theme-switcher";
 import { signOutAction } from "@/app/actions";
 import { type Conversation } from "@/app/chat-actions";
 import { useMemo, useState } from "react";
 import { AlertDialog } from "../ui/alert-dialog";
+import { HelpDialog } from "./help-dialog";
+import { AnnouncementDialog } from "./announcement-dialog";
+import { FeedbackDialog } from "./feedback-dialog";
 
 interface SidebarProps {
   conversations: Conversation[];
@@ -34,6 +37,9 @@ export function ChatSidebar({
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
   const [alertTitle, setAlertTitle] = useState("Notice");
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [isAnnouncementOpen, setIsAnnouncementOpen] = useState(false);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   // Helper function to render a list of conversations
   const renderConversationList = (conversationList: Conversation[]) => {
     return conversationList.map((conversation) => (
@@ -142,6 +148,25 @@ export function ChatSidebar({
           </div>
         ) : conversations.length > 0 ? (
           <>
+            <div className="mb-4 space-y-1">
+              <Button
+                onClick={() => setIsAnnouncementOpen(true)}
+                variant="ghost"
+                className="w-full flex items-center gap-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-900 justify-start px-3 py-2"
+              >
+                <Bell size={16} className="text-gray-500" />
+                <span>Announcement</span>
+              </Button>
+              <Button
+                onClick={() => setIsFeedbackOpen(true)}
+                variant="ghost"
+                className="w-full flex items-center gap-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-900 justify-start px-3 py-2"
+              >
+                <MessageCircle size={16} className="text-gray-500" />
+                <span>Feedback</span>
+              </Button>
+            </div>
+
             {/* Render conversations by time categories */}
             {categorizedConversations.today.length > 0 && (
               <>
@@ -212,12 +237,24 @@ export function ChatSidebar({
         </form>
       </div>
 
-      {/* Alert Dialog for empty conversation warning */}
+      {/* Dialogs */}
       <AlertDialog
         isOpen={isAlertOpen}
         onClose={() => setIsAlertOpen(false)}
         title={alertTitle}
         message={alertMessage}
+      />
+      <HelpDialog 
+        isOpen={isHelpOpen} 
+        onClose={() => setIsHelpOpen(false)} 
+      />
+      <AnnouncementDialog 
+        isOpen={isAnnouncementOpen} 
+        onClose={() => setIsAnnouncementOpen(false)} 
+      />
+      <FeedbackDialog 
+        isOpen={isFeedbackOpen} 
+        onClose={() => setIsFeedbackOpen(false)} 
       />
     </div>
   );
