@@ -4,7 +4,7 @@ import OpenAI from "openai";
 const openai = new OpenAI({
   apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
   baseURL: "https://api.groq.com/openai/v1",
-  dangerouslyAllowBrowser: true, // Allow browser usage for client-side applications
+  dangerouslyAllowBrowser: true,
 });
 
 // System prompt for STEM teaching with advanced formatting
@@ -88,6 +88,8 @@ export async function generateChatCompletion(messages: any[]) {
         ...messages
       ];
     }
+
+    console.log("OPENAI_KEY", process.env.NEXT_PUBLIC_OPENAI_KEY);
 
     const completion = await openai.chat.completions.create({
       model: "meta-llama/llama-4-scout-17b-16e-instruct", // Using the model specified in the example
