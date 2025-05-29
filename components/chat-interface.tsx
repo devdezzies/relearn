@@ -210,6 +210,20 @@ export default function ChatInterface({ initialConversationId }: { initialConver
 
     if (!input.trim() || isResponseStreaming || isLoading || isGeneratingVideo) return;
 
+    // Check if this is a video generation request
+    const isVideoRequest = input.toLowerCase().includes("generate video") || 
+                          input.toLowerCase().includes("create video") ||
+                          input.toLowerCase().includes("make video") ||
+                          input.toLowerCase().includes("video about") ||
+                          input.toLowerCase().includes("video explanation");
+
+    if (isVideoRequest) {
+      // Extract the topic from the video request
+      const topic = input.replace(/generate video|create video|make video|video about|video explanation/gi, "").trim();
+      await handleVideoGeneration(topic);
+      return;
+    }
+
     // Prepare the message content, including reply information if applicable
     let messageContent = input;
     if (replyingTo) {
@@ -321,29 +335,24 @@ export default function ChatInterface({ initialConversationId }: { initialConver
     }
   };
 
-  const handleVideoGeneration = async () => {
-    if (!input.trim() || isResponseStreaming || isLoading || isGeneratingVideo) return;
+  const handleVideoGeneration = async (topic: string) => {
+    if (!topic || isResponseStreaming || isLoading || isGeneratingVideo) return;
 
     const userMessage: Message = { 
       role: "user", 
-      content: `Generate a video about: ${input}`,
+      content: `Generate a video about: ${topic}`,
       timestamp: new Date(),
-      isNew: true // This is a new message
+      isNew: true
     };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
-    setReplyingTo(null); // Clear the reply when generating a video
+    setReplyingTo(null);
     setIsGeneratingVideo(true);
 
     try {
-      // If this is a new conversation, create it with the initial message
+      // If this is a new conversation, create it
       if (!currentConversationId) {
-        const newTitle = `Video: ${input.length > 25 
-          ? input.substring(0, 25) + "..." 
-          : input}`;
-
-        // Create a new conversation with the initial user message
-        // This is more efficient than creating a conversation and then adding a message separately
+        const newTitle = `Video: ${topic.length > 25 ? topic.substring(0, 25) + "..." : topic}`;
         const newConversation = await createConversation(newTitle, {
           role: "user",
           content: userMessage.content
@@ -351,54 +360,42 @@ export default function ChatInterface({ initialConversationId }: { initialConver
 
         setCurrentConversationId(newConversation.conversation_id);
         setChatTitle(newTitle);
-        setIsTitleUpdated(false); // Reset flag when creating a new video conversation
+        setIsTitleUpdated(false);
 
-        // Refresh conversations list
         const conversationsData = await getConversations();
         setConversations(conversationsData);
       } else {
-        // Add the user message to the existing conversation
-        await addMessage(
-          currentConversationId,
-          "user",
-          userMessage.content
-        );
+        await addMessage(currentConversationId, "user", userMessage.content);
       }
 
-      // Generate video explanation using AI
+      // Generate video
       try {
-        // Get video URL from environment variable or use a default for development
-        const videoUrl = process.env.NEXT_PUBLIC_SAMPLE_VIDEO_URL || 
-          "https://tlxtnbjmkuwlafilbgfn.supabase.co/storage/v1/object/public/video//hello_world_PlotExceedsYRangeProblem_1748101319.mp4";
-
-        // TODO: In a production app, integrate with a proper video generation service
-
-        // Convert the current messages to the format expected by the OpenAI API
-        const apiMessages = messages.map(msg => ({
-          role: msg.role,
-          content: msg.content
-        }));
-
-        // Add a specific prompt for video explanation
-        apiMessages.push({
-          role: "user",
-          content: `Generate a detailed explanation about "${input}" that would be suitable for a video explanation. Focus on visual descriptions and step-by-step explanations.`
+        console.log('[Chat Interface] Initiating video generation for topic:', topic);
+        
+        // Call the video generation API
+        const response = await fetch("/api/video", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            topic,
+            complexity: "intermediate" // Default complexity
+          }),
         });
 
-        // Generate AI response using the OpenAI client
-        const aiResponse = await generateChatCompletion(apiMessages);
+        if (!response.ok) {
+          throw new Error("Failed to generate video");
+        }
 
-        // Prepare the final response with video reference
-        const finalResponse = `Here's a video about "${input}" that might help explain the concept:\n\n${aiResponse}`;
+        const { videoUrl, videoScript } = await response.json();
+
+        // Prepare the final response with video reference and script
+        const finalResponse = `I've generated a video explaining "${topic}". Here's the explanation:\n\n${videoScript}`;
 
         // Add AI message with video to database
         if (currentConversationId) {
-          await addMessage(
-            currentConversationId,
-            "assistant",
-            finalResponse,
-            videoUrl
-          );
+          await addMessage(currentConversationId, "assistant", finalResponse, videoUrl);
         }
 
         // Add AI message to local state
@@ -410,25 +407,23 @@ export default function ChatInterface({ initialConversationId }: { initialConver
           isNew: true,
           relatedQuestions: await generateRelatedQuestions(finalResponse)
         };
-        setMessages(prev => [...prev, aiMessage]);
-        setIsGeneratingVideo(false);
-        inputRef.current?.focus();
-      } catch (error) {
-        console.error("Error generating video explanation:", error);
 
-        // Fallback response in case of error
+        setMessages(prev => [...prev, aiMessage]);
+      } catch (error) {
+        console.error("Error generating video:", error);
         const errorMessage: Message = {
           role: "assistant",
-          content: "I'm sorry, I encountered an error while generating the video explanation. Please try again later.",
+          content: "I apologize, but I encountered an error while generating the video. Please try again later.",
           timestamp: new Date(),
-          isNew: true // This is a new message that should use typewriter effect
+          isNew: true
         };
         setMessages(prev => [...prev, errorMessage]);
-        setIsGeneratingVideo(false);
       }
     } catch (error) {
       console.error("Error in video generation:", error);
+    } finally {
       setIsGeneratingVideo(false);
+      inputRef.current?.focus();
     }
   };
 
@@ -617,7 +612,7 @@ export default function ChatInterface({ initialConversationId }: { initialConver
         // Ctrl+Shift+Enter for video generation
         e.preventDefault();
         if (!isGeneratingVideo && !isLoading && !isResponseStreaming && input.trim() && (currentConversationId || conversations.length === 0)) {
-          handleVideoGeneration();
+          handleVideoGeneration(input.trim());
         }
       } else if (e.ctrlKey) {
         // Ctrl+Enter for text submission
@@ -920,7 +915,7 @@ export default function ChatInterface({ initialConversationId }: { initialConver
                     type="button" 
                     onClick={(e) => {
                       e.preventDefault();
-                      handleVideoGeneration();
+                      handleVideoGeneration(input.trim());
                     }}
                     disabled={isGeneratingVideo || isLoading || isResponseStreaming || !input.trim() || (!currentConversationId && conversations.length > 0)}
                     className="p-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"

@@ -234,3 +234,39 @@ export async function getPublicConversation(conversationId: string) {
 
   return data;
 }
+
+// Add video generation to a message
+export async function addVideoToMessage(messageId: string, videoUrl: string) {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("messages")
+    .update({ video_url: videoUrl })
+    .eq("message_id", messageId);
+
+  if (error) {
+    console.error("Error adding video to message:", error);
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/");
+  return { success: true };
+}
+
+// Update message with video generation status
+export async function updateVideoGenerationStatus(messageId: string, isGenerating: boolean) {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("messages")
+    .update({ is_generating_video: isGenerating })
+    .eq("message_id", messageId);
+
+  if (error) {
+    console.error("Error updating video generation status:", error);
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/");
+  return { success: true };
+}
