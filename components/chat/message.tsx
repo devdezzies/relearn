@@ -29,13 +29,13 @@ interface MessageProps {
 export function ChatMessage({ message, onReply, isResponseStreaming }: MessageProps) {
   return (
     <div className="flex w-full py-6">
-      <div className="flex w-full max-w-4xl mx-auto px-4 items-start gap-4">
+      <div className="flex w-full max-w-4xl mx-auto px-4 items-center gap-4">
         {message.role === "assistant" ? (
-          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center text-base">
+          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center text-base mt-0.5">
             🤖
           </div>
         ) : (
-          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center text-base">
+          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center text-base mt-0.5">
             🧑
           </div>
         )}

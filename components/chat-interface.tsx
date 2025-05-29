@@ -689,7 +689,7 @@ export default function ChatInterface({ initialConversationId }: { initialConver
             )}
           </div>
           <div className="text-xs text-gray-500 dark:text-gray-400">
-            {isGeneratingVideo ? "🎥 Generating video..." : isLoading ? "Typing..." : isResponseStreaming ? "🧠 Responding..." : ""}
+            {isGeneratingVideo ? "🎥 Generating video...   " : isLoading ? "Typing...   " : isResponseStreaming ? "🧠 Responding...   " : ""}
           </div>
         </div>
 
@@ -702,20 +702,20 @@ export default function ChatInterface({ initialConversationId }: { initialConver
             messages.map((message, index) => (
               <div
                 key={index}
-                className="flex w-full py-6"
+                className="flex w-full pt-6"
               >
                 <div className="flex w-full max-w-4xl mx-auto px-4 items-start gap-4">
                   {message.role === "assistant" ? (
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center text-base">
-                      🤖
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full dark:bg-gray-100 flex items-center justify-center text-2xl mt-3.5">
+                      
                     </div>
                   ) : (
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center text-base">
-                      🧑
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full dark:bg-gray-800 flex items-center justify-center text-2xl">
+                      🤔
                     </div>
                   )}
 
-                  <div className="flex flex-col flex-1 min-w-0">
+                  <div className={`flex flex-col flex-1 min-w-0 ${message.role === "user" ? "bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg" : ""}`}>
                     {message.videoUrl && (
                       <div className="mb-4">
                         <VideoPlayer 
@@ -835,14 +835,16 @@ export default function ChatInterface({ initialConversationId }: { initialConver
           {(isLoading || isGeneratingVideo) && (
             <div className="flex w-full py-8">
               <div className="flex w-full max-w-4xl mx-auto px-6 items-start gap-5">
-                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
-                  <Bot className="h-4 w-4 text-gray-700 dark:text-gray-300" />
-                </div>
+                {!isGeneratingVideo && (
+                  <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
+                    <Bot className="h-4 w-4 text-gray-700 dark:text-gray-300" />
+                  </div>
+                )}
                 <div className="flex flex-col flex-1">
                   <div className="prose prose-sm dark:prose-invert">
                     {isGeneratingVideo ? (
                       <div>
-                        <VideoSkeleton className="w-full max-w-2xl" />
+                        <VideoSkeleton className="w-full max-w-2xl ml-10" />
                       </div>
                     ) : (
                       <div className="flex space-x-2">
@@ -896,7 +898,7 @@ export default function ChatInterface({ initialConversationId }: { initialConver
                       ? "Generating video..." 
                       : isResponseStreaming
                         ? "Wait for response to complete..."
-                      : !currentConversationId && conversations.length > 0
+                        : !currentConversationId && conversations.length > 0
                         ? "Select a conversation or start a new one..."
                         : `Message ${chatTitle}... (Ctrl+Enter to send, Enter for new line)`
                   }
