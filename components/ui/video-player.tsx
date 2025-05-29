@@ -137,15 +137,21 @@ export function VideoPlayer({ src, className = "" }: VideoPlayerProps) {
       className={`relative group ${className}`}
       onMouseEnter={() => setShowControls(true)}
     >
-      <video
-        ref={videoRef}
-        className="w-full h-full rounded-lg"
-        playsInline
-        onEnded={() => setIsPlaying(false)}
-      >
-        <source src={src} type="video/mp4" />
-        Your browser does not support the video tag.
-      </video>
+      {/* Aspect ratio wrapper */}
+      <div className="relative w-full rounded-lg overflow-hidden" style={{ paddingTop: '56.25%' }}>
+        <video
+          ref={videoRef}
+          className="absolute top-0 left-0 w-full h-full object-cover rounded-lg"
+          playsInline
+          onEnded={() => setIsPlaying(false)}
+          onLoadedMetadata={() => {
+            if (videoRef.current) setDuration(videoRef.current.duration);
+          }}
+        >
+          <source src={src} type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+      </div>
 
       {/* Video Controls */}
       <div 

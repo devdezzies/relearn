@@ -31,6 +31,7 @@ import { MessageSuggestions } from "./chat/message-suggestions";
 import { ChatSidebar } from "./chat/sidebar";
 import { RelatedQuestions } from "./chat/related-questions";
 import { VideoPlayer } from "./ui/video-player";
+import { VideoSkeleton } from "./ui/video-skeleton";
 
 type Message = {
   role: "user" | "assistant";
@@ -841,12 +842,7 @@ export default function ChatInterface({ initialConversationId }: { initialConver
                   <div className="prose prose-sm dark:prose-invert">
                     {isGeneratingVideo ? (
                       <div>
-                        <p>Generating video...</p>
-                        <div className="flex space-x-2 mt-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce"></div>
-                          <div className="w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce" style={{ animationDelay: "0.2s" }}></div>
-                          <div className="w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce" style={{ animationDelay: "0.4s" }}></div>
-                        </div>
+                        <VideoSkeleton className="w-full max-w-2xl" />
                       </div>
                     ) : (
                       <div className="flex space-x-2">
