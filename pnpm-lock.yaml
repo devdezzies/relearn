@@ -44,6 +44,9 @@ importers:
       framer-motion:
         specifier: ^12.15.0
         version: 12.15.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      groq-sdk:
+        specifier: ^0.22.0
+        version: 0.22.0
       html2canvas:
         specifier: ^1.4.1
         version: 1.4.1
@@ -1291,6 +1294,9 @@ packages:
   gopd@1.2.0:
     resolution: {integrity: sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg==}
     engines: {node: '>= 0.4'}
+
+  groq-sdk@0.22.0:
+    resolution: {integrity: sha512-wLkIFlfbi6u9BM8x79wt+yKYqUHoF//od2P5U0MMZRvj/hR+sCZxx1E/ymSGP+M5/fER85MHhPOd/8q3BP4BbQ==}
 
   has-symbols@1.1.0:
     resolution: {integrity: sha512-1cDNdwJ2Jaohmb3sg4OmKaMBwuC48sYni5HUw2DvsC8LjGTLK9h+eb1X6RyuOHe4hT0ULCW68iomhjUoKUqlPQ==}
@@ -3408,6 +3414,18 @@ snapshots:
       path-scurry: 1.11.1
 
   gopd@1.2.0: {}
+
+  groq-sdk@0.22.0:
+    dependencies:
+      '@types/node': 18.19.103
+      '@types/node-fetch': 2.6.12
+      abort-controller: 3.0.0
+      agentkeepalive: 4.6.0
+      form-data-encoder: 1.7.2
+      formdata-node: 4.4.1
+      node-fetch: 2.7.0
+    transitivePeerDependencies:
+      - encoding
 
   has-symbols@1.1.0: {}
 
