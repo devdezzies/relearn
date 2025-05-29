@@ -11,6 +11,8 @@ import { MermaidDiagram } from "./mermaid-diagram";
 import { type Message as MessageType } from "@/app/chat-actions";
 import { MarkdownResponseStream } from "./markdown-response-stream";
 import { ThemeSwitcher } from "./theme-switcher";
+import { VideoPlayer } from "./ui/video-player";
+import { VideoSkeleton } from "./ui/video-skeleton";
 
 type Message = {
   role: "user" | "assistant";
@@ -18,6 +20,7 @@ type Message = {
   timestamp?: Date;
   videoUrl?: string;
   isNew?: boolean;
+  isGeneratingVideo?: boolean;
 };
 
 export default function SharedConversationView({ 
@@ -36,7 +39,8 @@ export default function SharedConversationView({
       content: msg.content,
       timestamp: new Date(msg.timestamp),
       videoUrl: msg.video_url,
-      isNew: false // These are existing messages, so they should not use the typewriter effect
+      isNew: false, // These are existing messages, so they should not use the typewriter effect
+      isGeneratingVideo: msg.is_generating_video
     }));
 
     setFormattedMessages(formatted);
@@ -85,13 +89,15 @@ export default function SharedConversationView({
                   <div className="flex flex-col flex-1 min-w-0">
                     {message.videoUrl && (
                       <div className="mb-4">
-                        <video 
-                          controls 
-                          className="rounded-lg w-full max-w-2xl"
+                        <VideoPlayer 
                           src={message.videoUrl}
-                        >
-                          Your browser does not support the video tag.
-                        </video>
+                          className="w-full max-w-2xl"
+                        />
+                      </div>
+                    )}
+                    {message.isGeneratingVideo && (
+                      <div className="mb-4">
+                        <VideoSkeleton className="w-full max-w-2xl" />
                       </div>
                     )}
                     <div className="prose prose-sm dark:prose-invert max-w-none">

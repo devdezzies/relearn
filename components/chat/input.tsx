@@ -68,13 +68,11 @@ export function ChatInput({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={
-              isGeneratingVideo 
-                ? "Generating video..." 
-                : isResponseStreaming
-                  ? "Wait for response to complete..."
-                : !currentConversationId && conversations.length > 0
-                  ? "Select a conversation or start a new one..."
-                  : `Message ${chatTitle}...`
+              isResponseStreaming
+                ? "Wait for response to complete..."
+              : !currentConversationId && conversations.length > 0
+                ? "Select a conversation or start a new one..."
+                : `Message ${chatTitle}...`
             }
             disabled={isLoading || isGeneratingVideo || isResponseStreaming || (!currentConversationId && conversations.length > 0)}
             className="w-full py-5 px-4 pr-12 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 text-gray-800 dark:text-gray-200 focus:ring-1 focus:ring-gray-300 dark:focus:ring-gray-700"

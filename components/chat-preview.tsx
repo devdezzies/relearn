@@ -1,5 +1,7 @@
 "use client";
 
+import { VideoPlayer } from "./ui/video-player";
+
 interface Message {
   type: 'question' | 'answer';
   content: string;
@@ -58,20 +60,11 @@ export function ChatPreview() {
       </div>
 
       {/* Demo Video */}
-      <div className="mt-4 relative rounded-xl overflow-hidden bg-gray-900 aspect-video">
-        <video 
-          className="w-full h-full object-cover"
-          autoPlay 
-          loop 
-          muted 
-          playsInline
-        >
-          <source 
-            src="https://tlxtnbjmkuwlafilbgfn.supabase.co/storage/v1/object/public/video//hello_world_PlotExceedsYRangeProblem_1748101319.mp4" 
-            type="video/mp4" 
-          />
-          Your browser does not support the video tag.
-        </video>
+      <div className="relative">
+        <VideoPlayer 
+          src="https://tlxtnbjmkuwlafilbgfn.supabase.co/storage/v1/object/public/video//hello_world_PlotExceedsYRangeProblem_1748101319.mp4"
+          className="w-full h-full"
+        />
         <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
       </div>
     </div>

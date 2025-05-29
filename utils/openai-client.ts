@@ -2,9 +2,9 @@ import OpenAI from "openai";
 
 // Initialize the OpenAI client with Groq API configuration
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || "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",
+  apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
   baseURL: "https://api.groq.com/openai/v1",
-  dangerouslyAllowBrowser: true,
+  dangerouslyAllowBrowser: true, // Allow browser usage for client-side applications
 });
 
 // System prompt for STEM teaching with advanced formatting

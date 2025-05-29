@@ -12,12 +12,13 @@ export type Conversation = {
 };
 
 export type Message = {
-  message_id: string;
-  conversation_id: string;
   role: "user" | "assistant";
   content: string;
-  timestamp: string;
+  timestamp: Date;
   video_url?: string;
+  message_id: string;
+  conversation_id: string;
+  is_generating_video?: boolean;
 };
 
 // Create a new conversation

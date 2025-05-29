@@ -48,84 +48,90 @@ const TaskItem = ({ title, checked = false }: { title: string; checked?: boolean
 export function FeaturesGrid() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
-      {/* Notifications Card */}
+      {/* Smart Tutoring Card */}
       <FeatureCard
-        title="Notifications"
-        description="All your notifications in one place."
+        title="Smart AI Tutoring"
+        description="Personalized learning assistant that adapts to your pace and style."
         className="md:row-span-2"
       >
         <div className="space-y-2">
           <NotificationItem
-            avatar={<Github className="w-5 h-5" />}
-            title="Jake requested PR review"
-            subtitle="#323 Learning Integration • Main"
+            avatar="🎓"
+            title="Personalized Learning Path Created"
+            subtitle="Based on your learning style and goals"
           />
           <NotificationItem
-            avatar="🎨"
-            title="David Assigned a Ticket"
-            subtitle="Login page style updates"
+            avatar="📚"
+            title="New Topic Mastered"
+            subtitle="Advanced Mathematics • Chapter 3"
             time="2 hours ago"
           />
           <NotificationItem
-            avatar="👥"
-            title="Team meeting scheduled"
-            subtitle="Weekly Sync"
-            time="Tomorrow 10 AM"
+            avatar="🎯"
+            title="Weekly Progress Update"
+            subtitle="You're 85% towards your goal"
+            time="Today"
           />
         </div>
       </FeatureCard>
 
-      {/* Drag & Drop Card */}
+      {/* Video Generator Card */}
       <FeatureCard
-        title="Effortless drag & drop"
-        description="Move items between apps."
+        title="AI Video Generator"
+        description="Transform lessons into engaging video content."
       >
         <div className="mt-4 flex items-center gap-4">
           <div className="flex-1 rounded-lg bg-gray-50 p-4">
             <div className="flex items-center gap-2">
-              <GripVertical className="h-5 w-5 text-gray-400" />
-              <span className="text-sm">Drag items here</span>
+              <MessageSquare className="h-5 w-5 text-gray-400" />
+              <span className="text-sm">Input your topic</span>
             </div>
           </div>
-          <div className="flex-1 rounded-lg bg-gray-50 p-4">
+          <div className="flex-1 rounded-lg bg-black text-white p-4">
             <div className="flex items-center gap-2">
-              <GripVertical className="h-5 w-5 text-gray-400" />
-              <span className="text-sm">Drop zone</span>
+              <span className="text-sm">Generate video</span>
             </div>
           </div>
         </div>
       </FeatureCard>
 
-      {/* Calendar Integration Card */}
+      {/* Quiz Generator Card */}
       <FeatureCard
-        title="Calendar Integration"
-        description="Seamlessly manage your schedule."
+        title="Adaptive Quizzes"
+        description="AI-generated assessments that evolve with you."
       >
-        <div className="mt-4 grid grid-cols-5 gap-1">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="aspect-square rounded bg-gray-50 p-2">
-              <div className="text-center text-sm">{11 + i}</div>
-            </div>
-          ))}
+        <div className="mt-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="h-4 w-4 rounded-full bg-green-500"></div>
+            <span className="text-sm">Personalized difficulty</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-4 w-4 rounded-full bg-blue-500"></div>
+            <span className="text-sm">Real-time feedback</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-4 w-4 rounded-full bg-purple-500"></div>
+            <span className="text-sm">Progress tracking</span>
+          </div>
         </div>
       </FeatureCard>
 
-      {/* Task Management Card */}
+      {/* Memory System Card */}
       <FeatureCard
-        title="Task Management"
-        description="Keep track of your progress."
+        title="Long-Term Memory"
+        description="AI that remembers your learning journey."
         className="md:col-span-2"
       >
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <TaskItem title="Review documentation" checked={true} />
-            <TaskItem title="Update design system" />
-            <TaskItem title="Implement new features" />
+            <TaskItem title="Remembers your learning style" checked={true} />
+            <TaskItem title="Tracks concept mastery" checked={true} />
+            <TaskItem title="Identifies knowledge gaps" checked={true} />
           </div>
           <div className="space-y-2">
-            <TaskItem title="Team meeting prep" checked={true} />
-            <TaskItem title="Client presentation" />
-            <TaskItem title="Project planning" />
+            <TaskItem title="Adapts to your progress" checked={true} />
+            <TaskItem title="Suggests review sessions" checked={true} />
+            <TaskItem title="Builds on previous lessons" checked={true} />
           </div>
         </div>
       </FeatureCard>
