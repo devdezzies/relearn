@@ -5,7 +5,7 @@ export async function generateEducationalVideo(prompt: string) {
   try {
     console.log(`[Video Generation] Starting video generation for prompt: ${prompt}`);
 
-    const response = await fetch("http://4.194.145.31:5050/video", {
+    const response = await fetch("http://0.0.0.0:5050/video", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
